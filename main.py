@@ -1,5 +1,6 @@
 
 import xml.dom.minidom
+import cpp
 
 class Parameter:
     def __init__(self, name, type, class_):
@@ -84,16 +85,21 @@ class GLXMLParser:
 
         return param_class
 
+def camel_case(class_name):
+    return ''.join([ item.title() for item in class_name.split(' ')])
 
 
 def main():
     # Open XML document using minidom parser
     DOMTree = xml.dom.minidom.parse("OpenGL-Registry/xml/gl.xml")
     parser = GLXMLParser()
-    commands = parser.parse(DOMTree)
+    commands_el = parser.parse(DOMTree)
 
-    for command in commands:
-        class_ = command.get_class()
+    for command_el in commands_el:
+        class_ = command_el.get_class()
 
         if class_ is not None:
-            print(command, class_)
+            print(command_el, class_)
+
+if __name__ == "__main__":
+    print(camel_case('vertex array'))
