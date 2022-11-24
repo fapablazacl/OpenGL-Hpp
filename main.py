@@ -1,44 +1,99 @@
 
 import xml.dom.minidom
 
-# Open XML document using minidom parser
-DOMTree = xml.dom.minidom.parse("OpenGL-Registry/xml/gl.xml")
-registry = DOMTree.documentElement
+class Parameter:
+    def __init__(self, name, type, class_):
+        self.name = name
+        self.type = type
+        self.class_ = class_
 
-for commands in registry.getElementsByTagName("commands"):
-    ns = commands.getAttribute("namespace")
+    def has_class(self):
+        return self.class_ is not None
 
-    for command in commands.getElementsByTagName("command"):
-        name = command.getElementsByTagName("proto")[0].getElementsByTagName("name")[0].childNodes[0].data
+
+class Command:
+    def __init__(self, name, return_type, params, namespace, group):
+        self.name = name
+        self.return_type = return_type
+        self.params = params
+        self.namespace = namespace
+        self.group = group
+
+    def get_class(self):
+        if self.params is None or len(self.params) == 0:
+            return None
+        
+        if self.params[0].has_class():
+            return self.params[0].class_
+            
+    def __str__(self):
+        return self.name
+
+    
+class GLXMLParser:
+    def parse(self, tree):
+        commands = []
+
+        registry_el = tree.documentElement
+        for commands_list in registry_el.getElementsByTagName("commands"):
+            ns = commands_list.getAttribute("namespace")
+
+            for command_el in commands_list.getElementsByTagName("command"):
+                commands.append(self.create_command(ns, command_el))
+                
+        return commands
+                
+    
+    def create_command(self, namespace, command_el):
+        name = self.extract_command_name(command_el)
         
         params = []
+        for param_el in command_el.getElementsByTagName("param"):
+            parameter = self.create_parameter(param_el)
+            params.append(parameter)
+        
+        return Command(name=name, return_type=None, params=params, namespace=namespace, group=None)
+        
 
-        for param in command.getElementsByTagName("param"):
-            # extract raw name
-            param_name = param.getElementsByTagName("name")[0].childNodes[0].data
+    def create_parameter(self, param_el):
+        return Parameter(
+            self.extract_param_name(param_el),
+            self.extract_param_type(param_el),
+            self.extract_param_class(param_el)
+        )
 
-            # extract raw data type
-            param_type = "const void *"
-            types = param.getElementsByTagName("ptype")
-            if len(types) > 0:
-                param_type = param.getElementsByTagName("ptype")[0].childNodes[0].data
+    def extract_command_name(self, command):
+        return command.getElementsByTagName("proto")[0].getElementsByTagName("name")[0].childNodes[0].data
 
-            # extract class -> this is a hint for a potential C++ RAAI class
-            param_class = None
+    def extract_param_name(self, param):
+        param.getElementsByTagName("name")[0].childNodes[0].data
 
-            if param.hasAttribute("class"):
-                param_class = param.getAttribute("class")
-            
-            # construct parameter dictionary data
-            param = {
-                "name" : param_name,
-                "type" : param_type 
-            }
+    def extract_param_type(self, param):
+        param_type = "const void *"
+        types = param.getElementsByTagName("ptype")
+        if len(types) > 0:
+            param_type = param.getElementsByTagName("ptype")[0].childNodes[0].data
 
-            if param_class is not None:
-                param["class"] = param_class
+        return param_type
 
-            # append parameter to the parameter dictionary
-            params.append(param)
+    def extract_param_class(self, param):
+        param_class = None
 
-        print(name, params)
+        if param.hasAttribute("class"):
+            param_class = param.getAttribute("class")
+
+        return param_class
+
+
+
+def main():
+    # Open XML document using minidom parser
+    DOMTree = xml.dom.minidom.parse("OpenGL-Registry/xml/gl.xml")
+    parser = GLXMLParser()
+    commands = parser.parse(DOMTree)
+
+    for command in commands:
+        class_ = command.get_class()
+
+        if class_ is not None:
+            print(command, class_)
