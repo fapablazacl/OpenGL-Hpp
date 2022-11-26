@@ -11,6 +11,19 @@ class Parameter:
     def has_class(self):
         return self.class_ is not None
 
+class EnumCollection:
+    def __init__(self, namespace, enums, group, type, vendor) -> None:
+        self.namespace = namespace
+        self.enums = enums
+        self.group = group
+        self.type = type
+        self.vendor = vendor
+
+class Enum:
+    def __init__(self, name, value, groups) -> None:
+        self.name = name
+        self.value = value
+        self.groups = groups
 
 class Command:
     def __init__(self, name, return_type, params, namespace, group):
@@ -57,9 +70,10 @@ class Feature:
 
 
 class Repository:
-    def __init__(self, features, commands) -> None:
+    def __init__(self, features, commands, enumscollections) -> None:
         self.features = features
         self.commands = commands
+        self.enumscollections = enumscollections
         self.objectdict = self.__consolidate_classes(self.commands)
 
     def __consolidate_classes(self, commands):
@@ -94,8 +108,10 @@ class GLXMLParser:
             for command_el in commands_list.getElementsByTagName("command"):
                 commands.append(self.create_command(ns, command_el))
 
-        return Repository(features=features, commands=commands)
-        
+        enumscollections = [self.create_enumcollection(enums_el) for enums_el in registry_el.getElementsByTagName("enums")]
+
+        return Repository(features=features, commands=commands, enumscollections=enumscollections)
+    
     def parse_features(self, registry_el):
         features_el = registry_el.getElementsByTagName("feature")
 
@@ -140,6 +156,21 @@ class GLXMLParser:
         )
 
         return feature
+
+    def create_enumcollection(self, enums_el):
+        ns = enums_el.getAttribute("namespace")
+        group = enums_el.getAttribute("group")
+        type = enums_el.getAttribute("type")
+        vendor = enums_el.getAttribute("vendor")
+        enums = [self.create_enum(enum_el) for enum_el in enums_el.getElementsByTagName("enum")]
+
+        return EnumCollection(namespace=ns, enums=enums, group=group, type=type, vendor=vendor)
+
+    def create_enum(self, enum_el):
+        return Enum(
+            name = enum_el.getAttribute("name"), 
+            value = enum_el.getAttribute("value"), 
+            groups = enum_el.getAttribute("group").split(","))
 
     def create_command(self, namespace, command_el):
         name = self.extract_command_name(command_el)
@@ -205,6 +236,10 @@ def camel_case(class_name):
 
 
 class CodeGenerator:
+    def generate_feature(self, feature):
+        print(feature)
+
+
     def generate_param(self, param):
         tmpl = "{} {}"
         return tmpl.format(param.type, param.name)
@@ -255,9 +290,8 @@ def main():
     DOMTree = xml.dom.minidom.parse("OpenGL-Registry/xml/gl.xml")
     parser = GLXMLParser()
     repository = parser.create_repository(DOMTree)
-
-    for feature in repository.features:
-        print(feature)
+    generator = CodeGenerator()
+    generator.generate_feature(repository.features[0])
 
     """
     classdict = consolidate_classes(commands)
