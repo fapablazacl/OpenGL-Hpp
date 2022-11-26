@@ -279,7 +279,7 @@ class CodeGenerator:
     def generate_consolidated_require(self, require, repository):
         # collect groups, for enumeration generation
         groups = []
-        for command_name in require.commands:
+        for command_name in ["glCullFace"] # require.commands:
             command = repository.commanddict[command_name]
 
             for param in command.params:
@@ -307,7 +307,7 @@ enum class {} {{
         tmpl = "{} = {};"
         return tmpl.format(enum.name, enum.value)
 
-    def generate_command(self, command):
+    def generate_cpp_command(self, command):
         pass
 
     def generate_param(self, param):
