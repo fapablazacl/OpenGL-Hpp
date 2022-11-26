@@ -44,15 +44,16 @@ class Remove:
         self.profile = profile
 
 class Feature:
-    def __init__(self, api, name, number) -> None:
+    def __init__(self, api, name, number, require_list, remove_list) -> None:
         self.api = api
         self.name = name
         self.number = number
-        self.require = Require()
-        self.remove = Remove()
+        self.require_list = require_list
+        self.remove_list = remove_list
 
     def __str__(self) -> str:
-        return "Feature(api={}, name={}, number={}, required_enums={}, required_commands={})".format(self.api, self.name, self.number, len(self.required_enums), len(self.required_commands))
+        template_str = "Feature(api={}, name={}, number={}, require_list={}, remove_list={})"
+        return template_str.format(self.api, self.name, self.number, len(self.require_list), len(self.remove_list))
 
     
 class GLXMLParser:
@@ -106,22 +107,18 @@ class GLXMLParser:
         return require
 
     def create_feature(self, feature_el):
+        require_list = [self.create_require(require_el) for require_el in feature_el.getElementsByTagName("require")]        
+        remove_list = [self.create_remove(remove_el) for remove_el in feature_el.getElementsByTagName("remove")]
+
         feature = Feature(
             api = feature_el.getAttribute("api"),
             name = feature_el.getAttribute("name"),
-            number =  feature_el.getAttribute("number")
+            number =  feature_el.getAttribute("number"),
+            require_list=require_list,
+            remove_list=remove_list
         )
 
-        for enum_el in feature_el.getElementsByTagName("enum"):
-            name = enum_el.getAttribute("name")
-            feature.required_enums.append(name)
-
-        for command_el in feature_el.getElementsByTagName("command"):
-            name = command_el.getAttribute("name")
-            feature.required_commands.append(name)
-
         return feature
-
 
     def create_command(self, namespace, command_el):
         name = self.extract_command_name(command_el)
@@ -214,7 +211,7 @@ def generate_params(params):
     return ', '.join([generate_param(param) for param in params])
 
 def generate_method_signature(command):
-    tmpl = """{} {}({})"""
+    tmpl = "{} {}({})"
     return tmpl.format(command.return_type, command.name, generate_params(command.params))
 
 
