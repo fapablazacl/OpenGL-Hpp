@@ -55,15 +55,37 @@ class Feature:
         template_str = "Feature(api={}, name={}, number={}, require_list={}, remove_list={})"
         return template_str.format(self.api, self.name, self.number, len(self.require_list), len(self.remove_list))
 
-    
+
+class Repository:
+    def __init__(self, features, commands) -> None:
+        self.features = features
+        self.commands = commands
+        self.objectdict = self.__consolidate_classes(self.commands)
+
+    def __consolidate_classes(self, commands):
+        classdict = {}
+
+        for command in commands:
+            class_ = command.get_class()
+            if class_ is None:
+                continue
+
+            class_commands = None
+            if class_ in classdict:
+                class_commands = classdict[class_]
+            else:
+                class_commands = []
+                classdict[class_] = class_commands
+
+            class_commands.append(command)
+        
+        return classdict
+
+        
 class GLXMLParser:
-    def parse(self, tree):
+    def create_repository(self, tree):
         registry_el = tree.documentElement
-
         features = self.parse_features(registry_el)
-
-        for feature in features:
-            print(feature)
 
         commands = []
         for commands_list in registry_el.getElementsByTagName("commands"):
@@ -71,10 +93,9 @@ class GLXMLParser:
 
             for command_el in commands_list.getElementsByTagName("command"):
                 commands.append(self.create_command(ns, command_el))
-                
-        return commands
 
-
+        return Repository(features=features, commands=commands)
+        
     def parse_features(self, registry_el):
         features_el = registry_el.getElementsByTagName("feature")
 
@@ -147,7 +168,6 @@ class GLXMLParser:
         if len(types) > 0:
             return types[0].childNodes[0].data
 
-        # void data type
         return proto.childNodes[0].data
 
         
@@ -184,83 +204,67 @@ def camel_case(class_name):
     return ''.join([ item.title() for item in class_name.split(' ')])
 
 
-def consolidate_classes(commands):
-    classdict = {}
+class CodeGenerator:
+    def generate_param(self, param):
+        tmpl = "{} {}"
+        return tmpl.format(param.type, param.name)
+        
+    def generate_params(self, params):
+        return ', '.join([self.generate_param(param) for param in params])
 
-    for command in commands:
-        class_ = command.get_class()
-        if class_ is None:
-            continue
-
-        class_commands = None
-        if class_ in classdict:
-            class_commands = classdict[class_]
-        else:
-            class_commands = []
-            classdict[class_] = class_commands
-
-        class_commands.append(command)
-    
-    return classdict
-
-def generate_param(param):
-    tmpl = "{} {}"
-    return tmpl.format(param.type, param.name)
-    
-def generate_params(params):
-    return ', '.join([generate_param(param) for param in params])
-
-def generate_method_signature(command):
-    tmpl = "{} {}({})"
-    return tmpl.format(command.return_type, command.name, generate_params(command.params))
+    def generate_method_signature(self, command):
+        tmpl = "{} {}({})"
+        return tmpl.format(command.return_type, command.name, self.generate_params(command.params))
 
 
-def generate_method_body(command):
-    tmpl = """ {{
+    def generate_method_body(self, command):
+        tmpl = """ {{
 
-}}
-"""
-    return tmpl.format()
+    }}
+    """
+        return tmpl.format()
 
-def generate_method(command):
-    tmpl = """{}{}"""
-    return tmpl.format(generate_method_signature(command), generate_method_body(command))
+    def generate_method(self, command):
+        tmpl = """{}{}"""
+        return tmpl.format(self.generate_method_signature(command), self.generate_method_body(command))
 
-def generate_methods(commands):
-    result = ""
+    def generate_methods(self, commands):
+        result = ""
 
-    for command in commands:
-        result += generate_method(command) + "\n"
+        for command in commands:
+            result += self.generate_method(command) + "\n"
 
-    return result
+        return result
 
-def generate_class(commands, key):
-    tmpl = """ 
+    def generate_class(self, commands, key):
+        tmpl = """ 
 class {} {{
 public:
 {}
 
 private:
 
-
 }};"""
 
-    class_name = camel_case(key)
-    return tmpl.format(class_name, generate_methods(commands))
+        class_name = camel_case(key)
+        return tmpl.format(class_name, self.generate_methods(commands))
 
 
 def main():
     # Open XML document using minidom parser
     DOMTree = xml.dom.minidom.parse("OpenGL-Registry/xml/gl.xml")
     parser = GLXMLParser()
+    repository = parser.create_repository(DOMTree)
 
-    commands = parser.parse(DOMTree)
+    for feature in repository.features:
+        print(feature)
+
+    """
     classdict = consolidate_classes(commands)
 
     key = "texture"
     generate_class(classdict[key], key)
     
-    """
     for key in classdict:
         generate_class(classdict[key], key)
     """
