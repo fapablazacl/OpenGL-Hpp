@@ -1,6 +1,5 @@
 
 import xml.dom.minidom
-import cpp
 
 class Parameter:
     def __init__(self, name, type, class_, len):
@@ -32,14 +31,25 @@ class Command:
     
     def __str__(self):
         return self.name
+
+class Require:
+    def __init__(self) -> None:
+        self.enums = []
+        self.commands = []
         
+class Remove:
+    def __init__(self, profile) -> None:
+        self.enums = []
+        self.commands = []
+        self.profile = profile
+
 class Feature:
     def __init__(self, api, name, number) -> None:
         self.api = api
         self.name = name
         self.number = number
-        self.required_enums = []
-        self.required_commands = []
+        self.require = Require()
+        self.remove = Remove()
 
     def __str__(self) -> str:
         return "Feature(api={}, name={}, number={}, required_enums={}, required_commands={})".format(self.api, self.name, self.number, len(self.required_enums), len(self.required_commands))
@@ -69,6 +79,31 @@ class GLXMLParser:
 
         return [self.create_feature(feature_el) for feature_el in features_el]
         
+    def create_remove(self, remove_el):
+        remove = Remove(profile=remove_el.getAttribute("profile"))
+
+        for enum_el in remove_el.getElementsByTagName("enum"):
+            name = enum_el.getAttribute("name")
+            remove.enums.append(name)
+
+        for command_el in remove_el.getElementsByTagName("command"):
+            name = command_el.getAttribute("name")
+            remove.commands.append(name)
+
+        return remove
+
+    def create_require(self, require_el):
+        require = Require()
+
+        for enum_el in require_el.getElementsByTagName("enum"):
+            name = enum_el.getAttribute("name")
+            require.enums.append(name)
+
+        for command_el in require_el.getElementsByTagName("command"):
+            name = command_el.getAttribute("name")
+            require.commands.append(name)
+
+        return require
 
     def create_feature(self, feature_el):
         feature = Feature(
