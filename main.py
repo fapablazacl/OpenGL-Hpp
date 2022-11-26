@@ -2,14 +2,23 @@
 import xml.dom.minidom
 
 class Parameter:
-    def __init__(self, name, type, class_, len):
+    def __init__(self, name, type, class_, len, group):
         self.name = name
         self.type = type
         self.class_ = class_
         self.len = len
+        self.group = group
 
     def has_class(self):
         return self.class_ is not None
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+    def __repr__(self) -> str:
+        tmpl = "Parameter(name={}, type={}, class={}, len={}, group={})"
+        return tmpl.format(self.name, self.type, self.class_, self.len, self.group)
+
 
 class EnumCollection:
     def __init__(self, namespace, enums, group, type, vendor) -> None:
@@ -24,6 +33,12 @@ class Enum:
         self.name = name
         self.value = value
         self.groups = groups
+
+    def __repr__(self) -> str:
+        return "Enum(name={}, value={})".format(self.name, self.value)
+
+    def __str__(self) -> str:
+        return "Enum(name={}, value={}, groups={})".format(self.name, self.value, self.groups)
 
 class Command:
     def __init__(self, name, return_type, params, namespace, group):
@@ -43,12 +58,16 @@ class Command:
         return None
     
     def __str__(self):
-        return self.name
+        tmpl = "Command(name={}, return_type={}, params={}, namespace={}, group={})"
+        return tmpl.format(self.name, self.return_type, self.params, self.namespace, self.group)
 
 class Require:
-    def __init__(self) -> None:
-        self.enums = []
-        self.commands = []
+    def __init__(self, enums, commands) -> None:
+        self.enums = enums
+        self.commands = commands
+
+    def __str__(self) -> str:
+        return "Require(enums={}, commands={})".format(self.enums, self.commands)
         
 class Remove:
     def __init__(self, profile) -> None:
@@ -73,8 +92,32 @@ class Repository:
     def __init__(self, features, commands, enumscollections) -> None:
         self.features = features
         self.commands = commands
+
+        self.commanddict = {}
+        for command in commands:
+            self.commanddict[command.name] = command
+
         self.enumscollections = enumscollections
+        self.group_to_enums_dict = self.__create_group_to_enums_dict(self.enumscollections)
         self.objectdict = self.__consolidate_classes(self.commands)
+
+    def __create_group_to_enums_dict(self, enumscollections):
+        group_to_enums_dict = {}
+
+        for enum_collection in enumscollections:
+            for enum in enum_collection.enums:
+                for group in enum.groups:
+                    enums = None
+
+                    if group in group_to_enums_dict:
+                        enums = group_to_enums_dict[group]
+                    else:
+                        enums = []
+                        group_to_enums_dict[group] = enums
+
+                    enums.append(enum)
+
+        return group_to_enums_dict
 
     def __consolidate_classes(self, commands):
         classdict = {}
@@ -131,17 +174,10 @@ class GLXMLParser:
         return remove
 
     def create_require(self, require_el):
-        require = Require()
+        enums = [enum_el.getAttribute("name") for enum_el in require_el.getElementsByTagName("enum")]
+        commands = [command_el.getAttribute("name") for command_el in require_el.getElementsByTagName("command")]
 
-        for enum_el in require_el.getElementsByTagName("enum"):
-            name = enum_el.getAttribute("name")
-            require.enums.append(name)
-
-        for command_el in require_el.getElementsByTagName("command"):
-            name = command_el.getAttribute("name")
-            require.commands.append(name)
-
-        return require
+        return Require(enums=enums, commands=commands)
 
     def create_feature(self, feature_el):
         require_list = [self.create_require(require_el) for require_el in feature_el.getElementsByTagName("require")]        
@@ -189,8 +225,12 @@ class GLXMLParser:
             self.extract_param_name(param_el),
             self.extract_param_type(param_el),
             self.extract_param_class(param_el),
-            self.extract_param_len(param_el)
+            self.extract_param_len(param_el),
+            self.extract_param_group(param_el)
         )
+
+    def extract_param_group(self, param_el):
+        return param_el.getAttribute("group")
 
     def extract_command_return_type(self, command):
         proto = command.getElementsByTagName("proto")[0]
@@ -236,9 +276,39 @@ def camel_case(class_name):
 
 
 class CodeGenerator:
-    def generate_feature(self, feature):
-        print(feature)
+    def generate_consolidated_require(self, require, repository):
+        # collect groups, for enumeration generation
+        groups = []
+        for command_name in require.commands:
+            command = repository.commanddict[command_name]
 
+            for param in command.params:
+                if param.group is None or param.group == "":
+                    continue
+
+                groups.append(param.group)
+
+        group_name = groups[0]
+        print(repository.group_to_enums_dict[group_name])
+        print(self.generate_cpp_enum(group_name, repository.group_to_enums_dict[group_name]))
+        
+
+    def generate_cpp_enum(self, cpp_enum_name, enums):
+        tmpl = """
+enum class {} {{
+    {}
+}};
+        """
+
+        entries = [self.generate_cpp_enum_entry(enum) for enum in enums]
+        return tmpl.format(cpp_enum_name, "\n    ".join(entries))
+    
+    def generate_cpp_enum_entry(self, enum):
+        tmpl = "{} = {};"
+        return tmpl.format(enum.name, enum.value)
+
+    def generate_command(self, command):
+        pass
 
     def generate_param(self, param):
         tmpl = "{} {}"
@@ -291,7 +361,7 @@ def main():
     parser = GLXMLParser()
     repository = parser.create_repository(DOMTree)
     generator = CodeGenerator()
-    generator.generate_feature(repository.features[0])
+    generator.generate_consolidated_require(repository.features[0].require_list[0], repository)
 
     """
     classdict = consolidate_classes(commands)
