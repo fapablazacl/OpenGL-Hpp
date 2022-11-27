@@ -12,6 +12,9 @@ class Parameter:
     def has_class(self):
         return self.class_ is not None
 
+    def has_group(self):
+        return self.group is not None or self.group != ""
+
     def __str__(self) -> str:
         return self.__repr__()
 
@@ -279,7 +282,7 @@ class CodeGenerator:
     def generate_consolidated_require(self, require, repository):
         # collect groups, for enumeration generation
         groups = []
-        for command_name in ["glCullFace"] # require.commands:
+        for command_name in ["glCullFace"]: # require.commands:
             command = repository.commanddict[command_name]
 
             for param in command.params:
@@ -289,10 +292,11 @@ class CodeGenerator:
                 groups.append(param.group)
 
         group_name = groups[0]
+
         print(repository.group_to_enums_dict[group_name])
         print(self.generate_cpp_enum(group_name, repository.group_to_enums_dict[group_name]))
+        print(self.generate_cpp_command(repository.commanddict["glCullFace"]))
         
-
     def generate_cpp_enum(self, cpp_enum_name, enums):
         tmpl = """
 enum class {} {{
@@ -303,31 +307,49 @@ enum class {} {{
         entries = [self.generate_cpp_enum_entry(enum) for enum in enums]
         return tmpl.format(cpp_enum_name, "\n    ".join(entries))
     
+    def convert_constant(self, constant):
+        return constant.replace("GL_", "")
+
     def generate_cpp_enum_entry(self, enum):
         tmpl = "{} = {};"
-        return tmpl.format(enum.name, enum.value)
+        return tmpl.format(self.convert_constant(enum.name), enum.value)
 
     def generate_cpp_command(self, command):
-        pass
+        return self.generate_method(command)
 
     def generate_param(self, param):
         tmpl = "{} {}"
-        return tmpl.format(param.type, param.name)
+        return tmpl.format(self.map_param_type(param), param.name)
+
+    def map_param_type(self, param):
+        if param.has_group():
+            return param.group
+        
+        return param.type
         
     def generate_params(self, params):
         return ', '.join([self.generate_param(param) for param in params])
 
     def generate_method_signature(self, command):
-        tmpl = "{} {}({})"
-        return tmpl.format(command.return_type, command.name, self.generate_params(command.params))
+        tmpl = "inline {} {}({})"
+        return tmpl.format(command.return_type, self.convert_function_name(command.name), self.generate_params(command.params))
 
+    def convert_function_name(self, name):
+        return name[2:len(name)]
 
     def generate_method_body(self, command):
         tmpl = """ {{
+    return {}({});
+}}"""
+        param_invoke_list = [self.generate_method_body_param(param) for param in command.params]
 
-    }}
-    """
-        return tmpl.format()
+        return tmpl.format(command.name, ", ".join(param_invoke_list))
+
+    def generate_method_body_param(self, param):
+        if param.has_group():
+            return f'static_cast<{param.type}>({param.name})'
+
+        return param.name
 
     def generate_method(self, command):
         tmpl = """{}{}"""
