@@ -13,7 +13,13 @@ class Parameter:
         return self.class_ is not None
 
     def has_group(self):
-        return self.group is not None or self.group != ""
+        if self.group is None:
+            return False
+        
+        if self.group == "":
+            return False
+        
+        return True
 
     def __str__(self) -> str:
         return self.__repr__()
@@ -280,9 +286,9 @@ def camel_case(class_name):
 
 class CodeGenerator:
     def generate_consolidated_require(self, require, repository):
-        # collect groups, for enumeration generation
+        # collect groups, from commands, for enumeration generation
         groups = []
-        for command_name in ["glCullFace"]: # require.commands:
+        for command_name in require.commands:
             command = repository.commanddict[command_name]
 
             for param in command.params:
@@ -291,11 +297,26 @@ class CodeGenerator:
 
                 groups.append(param.group)
 
-        group_name = groups[0]
+        # generate enumeration types
+        generated_enums = []
+        for group_name in groups:
+            if group_name not in repository.group_to_enums_dict:
+                continue
 
-        print(repository.group_to_enums_dict[group_name])
-        print(self.generate_cpp_enum(group_name, repository.group_to_enums_dict[group_name]))
-        print(self.generate_cpp_command(repository.commanddict["glCullFace"]))
+            generated_enums.append(self.generate_cpp_enum(group_name, repository.group_to_enums_dict[group_name]))
+        
+        # generate command code 
+        generated_commands = []
+        for command_name in require.commands:
+            generated_commands.append(self.generate_cpp_command(repository.commanddict[command_name]))
+
+        return """
+#warning This header requires glad.h included previously
+namespace gl {{
+{}
+{}
+}}
+        """.format("\n".join(generated_enums), "\n".join(generated_commands))
         
     def generate_cpp_enum(self, cpp_enum_name, enums):
         tmpl = """
@@ -305,13 +326,13 @@ enum class {} {{
         """
 
         entries = [self.generate_cpp_enum_entry(enum) for enum in enums]
-        return tmpl.format(cpp_enum_name, "\n    ".join(entries))
+        return tmpl.format(cpp_enum_name, ",\n    ".join(entries))
     
     def convert_constant(self, constant):
         return constant.replace("GL_", "")
 
     def generate_cpp_enum_entry(self, enum):
-        tmpl = "{} = {};"
+        tmpl = "{} = {}"
         return tmpl.format(self.convert_constant(enum.name), enum.value)
 
     def generate_cpp_command(self, command):
@@ -383,7 +404,8 @@ def main():
     parser = GLXMLParser()
     repository = parser.create_repository(DOMTree)
     generator = CodeGenerator()
-    generator.generate_consolidated_require(repository.features[0].require_list[0], repository)
+    generated_code = generator.generate_consolidated_require(repository.features[0].require_list[0], repository)
+    print(generated_code)
 
     """
     classdict = consolidate_classes(commands)
