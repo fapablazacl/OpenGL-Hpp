@@ -1,5 +1,10 @@
 
-#warning This header requires glad.h included previously
+#ifndef __gl_hpp__
+#define __gl_hpp__
+#ifndef __glad_h_
+#error This header requires glad.h to be included previously
+#endif
+
 namespace gl {
 
 enum class TriangleFace {
@@ -8568,4 +8573,5 @@ inline void  Translatef(GLfloat x, GLfloat y, GLfloat z) {
     return glTranslatef(x, y, z);
 }
 }
-        
+#endif 
+

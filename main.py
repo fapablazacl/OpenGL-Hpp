@@ -311,12 +311,18 @@ class CodeGenerator:
             generated_commands.append(self.generate_cpp_command(repository.commanddict[command_name]))
 
         return """
-#warning This header requires glad.h included previously
+#ifndef __gl_hpp__
+#define __gl_hpp__
+#ifndef __glad_h_
+#error This header requires glad.h to be included previously
+#endif
+
 namespace gl {{
 {}
 {}
 }}
-        """.format("\n".join(generated_enums), "\n".join(generated_commands))
+#endif 
+""".format("\n".join(generated_enums), "\n".join(generated_commands))
         
     def generate_cpp_enum(self, cpp_enum_name, enums):
         tmpl = """
