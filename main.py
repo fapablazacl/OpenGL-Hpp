@@ -279,30 +279,30 @@ class GLXMLParser:
         
         return None
 
-
 def camel_case(class_name):
     return ''.join([ item.title() for item in class_name.split(' ')])
 
-
 class CodeGenerator:
-    def generate_consolidated_require(self, require, repository):
+    def __init__(self, repository):
+        self.__repository = repository
+
+    def generate_consolidated_require(self, require):
+        repository = self.__repository
+
         # collect groups, from commands, for enumeration generation
-        groups = []
+        group_set = set()
         for command_name in require.commands:
             command = repository.commanddict[command_name]
 
             for param in command.params:
-                if param.group is None or param.group == "":
+                if param.group is None or param.group == "" or param.group not in repository.group_to_enums_dict:
                     continue
 
-                groups.append(param.group)
+                group_set.add(param.group)
 
         # generate enumeration types
         generated_enums = []
-        for group_name in groups:
-            if group_name not in repository.group_to_enums_dict:
-                continue
-
+        for group_name in group_set:
             generated_enums.append(self.generate_cpp_enum(group_name, repository.group_to_enums_dict[group_name]))
         
         # generate command code 
@@ -310,8 +310,7 @@ class CodeGenerator:
         for command_name in require.commands:
             generated_commands.append(self.generate_cpp_command(repository.commanddict[command_name]))
 
-        return """
-#ifndef __gl_hpp__
+        return """#ifndef __gl_hpp__
 #define __gl_hpp__
 #ifndef __glad_h_
 #error This header requires glad.h to be included previously
@@ -325,17 +324,15 @@ namespace gl {{
 """.format("\n".join(generated_enums), "\n".join(generated_commands))
         
     def generate_cpp_enum(self, cpp_enum_name, enums):
-        tmpl = """
-enum class {} {{
+        tmpl = """enum class {} {{
     {}
-}};
-        """
+}};"""
 
         entries = [self.generate_cpp_enum_entry(enum) for enum in enums]
         return tmpl.format(cpp_enum_name, ",\n    ".join(entries))
     
     def convert_constant(self, constant):
-        return constant.replace("GL_", "")
+        return constant.replace("GL_", "e")
 
     def generate_cpp_enum_entry(self, enum):
         tmpl = "{} = {}"
@@ -349,7 +346,7 @@ enum class {} {{
         return tmpl.format(self.map_param_type(param), param.name)
 
     def map_param_type(self, param):
-        if param.has_group():
+        if param.has_group() and param.group in self.__repository.group_to_enums_dict:
             return param.group
         
         return param.type
@@ -362,7 +359,7 @@ enum class {} {{
         return tmpl.format(command.return_type, self.convert_function_name(command.name), self.generate_params(command.params))
 
     def convert_function_name(self, name):
-        return name[2:len(name)]
+        return name[2:3].lower() + name[3:len(name)]
 
     def generate_method_body(self, command):
         tmpl = """ {{
@@ -399,7 +396,6 @@ public:
 private:
 
 }};"""
-
         class_name = camel_case(key)
         return tmpl.format(class_name, self.generate_methods(commands))
 
@@ -409,8 +405,8 @@ def main():
     DOMTree = xml.dom.minidom.parse("OpenGL-Registry/xml/gl.xml")
     parser = GLXMLParser()
     repository = parser.create_repository(DOMTree)
-    generator = CodeGenerator()
-    generated_code = generator.generate_consolidated_require(repository.features[0].require_list[0], repository)
+    generator = CodeGenerator(repository)
+    generated_code = generator.generate_consolidated_require(repository.features[0].require_list[0])
     print(generated_code)
 
     """
