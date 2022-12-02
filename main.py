@@ -220,15 +220,10 @@ class GLXMLParser:
     def create_command(self, namespace, command_el):
         name = self.extract_command_name(command_el)
         return_type = self.extract_command_return_type(command_el)
-        
-        params = []
-        for param_el in command_el.getElementsByTagName("param"):
-            parameter = self.create_parameter(param_el)
-            params.append(parameter)
+        params = [self.create_parameter(param_el) for param_el in command_el.getElementsByTagName("param")]
 
         return Command(name=name, return_type=return_type, params=params, namespace=namespace, group=None)
         
-
     def create_parameter(self, param_el):
         return Parameter(
             self.extract_param_name(param_el),
@@ -262,7 +257,7 @@ class GLXMLParser:
         types = param.getElementsByTagName("ptype")
         if len(types) > 0:
             param_type = types[0].childNodes[0].data
-
+        
         return param_type
 
     def extract_param_class(self, param):
