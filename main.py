@@ -1,14 +1,17 @@
 
 import xml.dom.minidom
+from xml.dom.minidom import Node
 
 class Parameter:
-    def __init__(self, name, type, class_, len, group):
+    def __init__(self, name, type, class_, len, group, is_const, is_pointer):
         self.name = name
         self.type = type
         self.class_ = class_
         self.len = len
         self.group = group
-
+        self.is_const = is_const
+        self.is_pointer = is_pointer
+        
     def has_class(self):
         return self.class_ is not None
 
@@ -25,8 +28,8 @@ class Parameter:
         return self.__repr__()
 
     def __repr__(self) -> str:
-        tmpl = "Parameter(name={}, type={}, class={}, len={}, group={})"
-        return tmpl.format(self.name, self.type, self.class_, self.len, self.group)
+        tmpl = "Parameter(name={}, type={}, class={}, len={}, group={}, is_const={}, is_pointer={})"
+        return tmpl.format(self.name, self.type, self.class_, self.len, self.group, self.is_const, self.is_pointer)
 
 
 class EnumCollection:
@@ -222,32 +225,70 @@ class GLXMLParser:
         return_type = self.extract_command_return_type(command_el)
         params = [self.create_parameter(param_el) for param_el in command_el.getElementsByTagName("param")]
 
-        return Command(name=name, return_type=return_type, params=params, namespace=namespace, group=None)
+        command = Command(name=name, return_type=return_type, params=params, namespace=namespace, group=None)
+
+        """
+        if command.name == "glVertex3fv" or command.name == "glVertex3f":
+            print(command)
+        """
+
+        return command
         
     def create_parameter(self, param_el):
-        return Parameter(
+        """
+        # <param group="ColorF" len="4">const <ptype>GLfloat</ptype> *<name>v</name></param>
+        print(param_el.childNodes[0].data) # const
+        print(param_el.childNodes[1])      # ptype Element
+        print(param_el.childNodes[2].data) # *
+        
+        param_type = "const void *"
+        types = param.getElementsByTagName("ptype")
+        if len(types) > 0:
+            param_type = types[0].childNodes[0].data
+        
+        return param_type
+        """
+
+        param = Parameter(
             self.extract_param_name(param_el),
             self.extract_param_type(param_el),
             self.extract_param_class(param_el),
             self.extract_param_len(param_el),
-            self.extract_param_group(param_el)
+            self.extract_param_group(param_el),
+            self.extract_param_is_const(param_el), 
+            self.extract_param_is_pointer(param_el)
         )
+
+        return param
+
+    def extract_param_is_const(self, param_el):
+        if len(param_el.childNodes) <= 1:
+            return False
+
+        """
+        # <param group="ColorI"><ptype>GLint</ptype> <name>red</name></param>
+        print("'" + param_el.childNodes[0].data.strip() + "'") # const
+        print(param_el.childNodes[1])      # ptype Element
+        print(param_el.childNodes[2]) # *
+        exit(0)
+        """
+
+        if param_el.childNodes[0].nodeType != Node.TEXT_NODE:
+            return False
+
+        return param_el.childNodes[0].data.strip() == "const"
+
+    def extract_param_is_pointer(self, param_el):
+        if len(param_el.childNodes) < 3:
+            return False
+
+        if param_el.childNodes[2].nodeType != Node.TEXT_NODE:
+            return False
+
+        return param_el.childNodes[2].data.strip() == "*"
 
     def extract_param_group(self, param_el):
         return param_el.getAttribute("group")
-
-    def extract_command_return_type(self, command):
-        proto = command.getElementsByTagName("proto")[0]
-
-        types = proto.getElementsByTagName("ptype")
-        if len(types) > 0:
-            return types[0].childNodes[0].data
-
-        return proto.childNodes[0].data
-
-        
-    def extract_command_name(self, command):
-        return command.getElementsByTagName("proto")[0].getElementsByTagName("name")[0].childNodes[0].data
 
     def extract_param_name(self, param):
         return param.getElementsByTagName("name")[0].childNodes[0].data
@@ -273,6 +314,19 @@ class GLXMLParser:
             return param.getAttribute("len")
         
         return None
+
+    def extract_command_return_type(self, command):
+        proto = command.getElementsByTagName("proto")[0]
+
+        types = proto.getElementsByTagName("ptype")
+        if len(types) > 0:
+            return types[0].childNodes[0].data
+
+        return proto.childNodes[0].data
+
+    def extract_command_name(self, command):
+        return command.getElementsByTagName("proto")[0].getElementsByTagName("name")[0].childNodes[0].data
+
 
 def camel_case(class_name):
     return ''.join([ item.title() for item in class_name.split(' ')])
@@ -319,7 +373,7 @@ namespace gl {{
 """.format("\n".join(generated_enums), "\n".join(generated_commands))
         
     def generate_cpp_enum(self, cpp_enum_name, enums):
-        tmpl = """enum class {} {{
+        tmpl = """enum class {} : GLenum {{
     {}
 }};"""
 
@@ -344,7 +398,16 @@ namespace gl {{
         if param.has_group() and param.group in self.__repository.group_to_enums_dict:
             return param.group
         
-        return param.type
+        result = ""
+        if param.is_const:
+            result += "const "
+
+        result += param.type
+
+        if param.is_pointer:
+            result += "* "
+
+        return result
         
     def generate_params(self, params):
         return ', '.join([self.generate_param(param) for param in params])
@@ -365,7 +428,7 @@ namespace gl {{
         return tmpl.format(command.name, ", ".join(param_invoke_list))
 
     def generate_method_body_param(self, param):
-        if param.has_group():
+        if param.has_group() and not param.is_pointer:
             return f'static_cast<{param.type}>({param.name})'
 
         return param.name
