@@ -164,7 +164,7 @@ class GLXMLParser:
                 commands.append(self.create_command(ns, command_el))
 
         enumscollections = [self.create_enumcollection(enums_el) for enums_el in registry_el.getElementsByTagName("enums")]
-
+        
         return Repository(features=features, commands=commands, enumscollections=enumscollections)
     
     def parse_features(self, registry_el):
@@ -211,8 +211,9 @@ class GLXMLParser:
         type = enums_el.getAttribute("type")
         vendor = enums_el.getAttribute("vendor")
         enums = [self.create_enum(enum_el) for enum_el in enums_el.getElementsByTagName("enum")]
+        enum_collection = EnumCollection(namespace=ns, enums=enums, group=group, type=type, vendor=vendor)
 
-        return EnumCollection(namespace=ns, enums=enums, group=group, type=type, vendor=vendor)
+        return enum_collection
 
     def create_enum(self, enum_el):
         return Enum(
@@ -227,28 +228,12 @@ class GLXMLParser:
 
         command = Command(name=name, return_type=return_type, params=params, namespace=namespace, group=None)
 
-        """
-        if command.name == "glVertex3fv" or command.name == "glVertex3f":
-            print(command)
-        """
+        #if command.name == "glGetString":
+        #    print(command)
 
         return command
         
     def create_parameter(self, param_el):
-        """
-        # <param group="ColorF" len="4">const <ptype>GLfloat</ptype> *<name>v</name></param>
-        print(param_el.childNodes[0].data) # const
-        print(param_el.childNodes[1])      # ptype Element
-        print(param_el.childNodes[2].data) # *
-        
-        param_type = "const void *"
-        types = param.getElementsByTagName("ptype")
-        if len(types) > 0:
-            param_type = types[0].childNodes[0].data
-        
-        return param_type
-        """
-
         param = Parameter(
             self.extract_param_name(param_el),
             self.extract_param_type(param_el),
@@ -262,30 +247,24 @@ class GLXMLParser:
         return param
 
     def extract_param_is_const(self, param_el):
-        if len(param_el.childNodes) <= 1:
-            return False
+        for node in param_el.childNodes:
+            if node.nodeType != Node.TEXT_NODE:
+                continue
 
-        """
-        # <param group="ColorI"><ptype>GLint</ptype> <name>red</name></param>
-        print("'" + param_el.childNodes[0].data.strip() + "'") # const
-        print(param_el.childNodes[1])      # ptype Element
-        print(param_el.childNodes[2]) # *
-        exit(0)
-        """
-
-        if param_el.childNodes[0].nodeType != Node.TEXT_NODE:
-            return False
-
-        return param_el.childNodes[0].data.strip() == "const"
+            if node.data.strip() == "const":
+                return True
+        
+        return False
 
     def extract_param_is_pointer(self, param_el):
-        if len(param_el.childNodes) < 3:
-            return False
+        for node in param_el.childNodes:
+            if node.nodeType != Node.TEXT_NODE:
+                continue
 
-        if param_el.childNodes[2].nodeType != Node.TEXT_NODE:
-            return False
-
-        return param_el.childNodes[2].data.strip() == "*"
+            if node.data.strip() == "*":
+                return True
+        
+        return False
 
     def extract_param_group(self, param_el):
         return param_el.getAttribute("group")
@@ -294,10 +273,15 @@ class GLXMLParser:
         return param.getElementsByTagName("name")[0].childNodes[0].data
 
     def extract_param_type(self, param):
-        param_type = "const void *"
+        param_type = None
         types = param.getElementsByTagName("ptype")
         if len(types) > 0:
             param_type = types[0].childNodes[0].data
+        else:
+            for node in param.childNodes:
+                if node.nodeType == Node.TEXT_NODE:
+                    param_type = node.data.strip()
+                    break
         
         return param_type
 
@@ -316,13 +300,18 @@ class GLXMLParser:
         return None
 
     def extract_command_return_type(self, command):
+        # <proto group="String">const <ptype>GLubyte</ptype> *<name>glGetString</name></proto>
         proto = command.getElementsByTagName("proto")[0]
+        parts = []
 
-        types = proto.getElementsByTagName("ptype")
-        if len(types) > 0:
-            return types[0].childNodes[0].data
+        for node in proto.childNodes:
+            if node.nodeType == Node.TEXT_NODE:
+                parts.append(node.data.strip())
 
-        return proto.childNodes[0].data
+            if node.nodeType == Node.ELEMENT_NODE and node.tagName == "ptype":
+                parts.append(node.childNodes[0].data.strip())
+
+        return " ".join(parts)
 
     def extract_command_name(self, command):
         return command.getElementsByTagName("proto")[0].getElementsByTagName("name")[0].childNodes[0].data
@@ -371,14 +360,24 @@ namespace gl {{
 }}
 #endif 
 """.format("\n".join(generated_enums), "\n".join(generated_commands))
-        
+
+    def generate_cpp_boolean_enum(self):
+        pass
+
     def generate_cpp_enum(self, cpp_enum_name, enums):
-        tmpl = """enum class {} : GLenum {{
+        base_type = ""
+
+        if cpp_enum_name == "Boolean":
+            base_type = "GLboolean"
+        else:
+            base_type = "GLenum"
+
+        tmpl = """enum class {} : {} {{
     {}
 }};"""
 
         entries = [self.generate_cpp_enum_entry(enum) for enum in enums]
-        return tmpl.format(cpp_enum_name, ",\n    ".join(entries))
+        return tmpl.format(cpp_enum_name, base_type, ",\n    ".join(entries))
     
     def convert_constant(self, constant):
         return constant.replace("GL_", "e")
@@ -394,20 +393,22 @@ namespace gl {{
         tmpl = "{} {}"
         return tmpl.format(self.map_param_type(param), param.name)
 
-    def map_param_type(self, param):
-        if param.has_group() and param.group in self.__repository.group_to_enums_dict:
-            return param.group
-        
-        result = ""
-        if param.is_const:
-            result += "const "
+    def map_param_type(self, param, ignore_group = False):
+        param_type = param.type
 
-        result += param.type
+        if ignore_group == False and param.has_group() and param.group in self.__repository.group_to_enums_dict:
+            param_type = param.group
+        
+        parts = []
+        if param.is_const:
+            parts.append("const")
+
+        parts.append(param_type)
 
         if param.is_pointer:
-            result += "* "
+            parts.append("*")
 
-        return result
+        return " ".join(parts)
         
     def generate_params(self, params):
         return ', '.join([self.generate_param(param) for param in params])
@@ -428,6 +429,9 @@ namespace gl {{
         return tmpl.format(command.name, ", ".join(param_invoke_list))
 
     def generate_method_body_param(self, param):
+        if param.has_group() and param.group == "Boolean" and param.is_pointer:
+            return f'reinterpret_cast<{self.map_param_type(param, True)}>({param.name})'
+
         if param.has_group() and not param.is_pointer:
             return f'static_cast<{param.type}>({param.name})'
 
