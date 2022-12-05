@@ -99,7 +99,6 @@ class Feature:
         template_str = "Feature(api={}, name={}, number={}, require_list={}, remove_list={})"
         return template_str.format(self.api, self.name, self.number, len(self.require_list), len(self.remove_list))
 
-
 class Repository:
     def __init__(self, features, commands, enumscollections) -> None:
         self.features = features
@@ -112,6 +111,15 @@ class Repository:
         self.enumscollections = enumscollections
         self.group_to_enums_dict = self.__create_group_to_enums_dict(self.enumscollections)
         self.objectdict = self.__consolidate_classes(self.commands)
+
+        self.features_per_api = {}
+        for feature in self.features:
+            api = feature.api
+
+            if api not in self.features_per_api:
+                self.features_per_api[api] = []
+            
+            self.features_per_api[api].append(feature)
 
     def __create_group_to_enums_dict(self, enumscollections):
         group_to_enums_dict = {}
@@ -150,7 +158,34 @@ class Repository:
         
         return classdict
 
+    def consolidate(self, api, number):
+        features = self.features_per_api[api]
+
+        consolidated_require = Require([], [])
+
+        # append first all feature contents
+        for feature in features:
+            if feature.number > number:
+                continue
+            
+            for require in feature.require_list:
+                consolidated_require.commands.extend(require.commands)
+                consolidated_require.enums.extend(require.enums)
         
+        # remove all deprecated commands and enumerations
+        for feature in features:
+            if feature.number > number:
+                continue
+            
+            for remove in feature.remove_list:
+                for command in remove.commands:
+                    consolidated_require.commands.remove(command)
+
+                for enum in remove.enums:
+                    consolidated_require.enums.remove(enum)
+        
+        return consolidated_require
+                
 class GLXMLParser:
     def create_repository(self, tree):
         registry_el = tree.documentElement
@@ -227,10 +262,7 @@ class GLXMLParser:
         params = [self.create_parameter(param_el) for param_el in command_el.getElementsByTagName("param")]
 
         command = Command(name=name, return_type=return_type, params=params, namespace=namespace, group=None)
-
-        #if command.name == "glGetString":
-        #    print(command)
-
+        
         return command
         
     def create_parameter(self, param_el):
@@ -461,14 +493,14 @@ private:
         class_name = camel_case(key)
         return tmpl.format(class_name, self.generate_methods(commands))
 
-
 def main():
     # Open XML document using minidom parser
     DOMTree = xml.dom.minidom.parse("OpenGL-Registry/xml/gl.xml")
     parser = GLXMLParser()
     repository = parser.create_repository(DOMTree)
     generator = CodeGenerator(repository)
-    generated_code = generator.generate_consolidated_require(repository.features[0].require_list[0])
+    consolidated_require = repository.consolidate("gl", "3.3")
+    generated_code = generator.generate_consolidated_require(consolidated_require)
     print(generated_code)
 
     """
@@ -481,7 +513,5 @@ def main():
         generate_class(classdict[key], key)
     """
 
-
 if __name__ == "__main__":
-    # print(camel_case('vertex array'))
     main()
