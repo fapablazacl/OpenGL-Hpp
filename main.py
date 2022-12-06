@@ -161,7 +161,7 @@ class Repository:
     def consolidate(self, api, number):
         features = self.features_per_api[api]
 
-        consolidated_require = Require([], [])
+        consolidated_require = Require(set(), set())
 
         # append first all feature contents
         for feature in features:
@@ -169,8 +169,12 @@ class Repository:
                 continue
             
             for require in feature.require_list:
-                consolidated_require.commands.extend(require.commands)
-                consolidated_require.enums.extend(require.enums)
+                for command in require.commands:
+                    consolidated_require.commands.add(command)
+
+                for enum in require.enums:
+                    consolidated_require.enums.add(enum)
+        
         
         # remove all deprecated commands and enumerations
         for feature in features:
