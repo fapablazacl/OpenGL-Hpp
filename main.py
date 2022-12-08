@@ -9,7 +9,7 @@ def generate_hpp_header_filename(api, version):
     return api + version.replace(".", "") + ".hpp"
 
 def generate_hpp_header(gl_xml_file_path, api, version, output_folder):
-    print("generating header file, with api " + api + " and version " + version)
+    print("generating header file, with api '" + api + "' and version '" + version + "'")
 
     # Open XML document using minidom parser
     DOMTree = xml.dom.minidom.parse(gl_xml_file_path)
@@ -25,6 +25,8 @@ def generate_hpp_header(gl_xml_file_path, api, version, output_folder):
     file.write(generated_code)
     file.close()
 
+    print("Done.")
+
     """
     classdict = consolidate_classes(commands)
 
@@ -36,9 +38,7 @@ def generate_hpp_header(gl_xml_file_path, api, version, output_folder):
     """
 
 def main():
-    print(sys.argv)
     generate_hpp_header("OpenGL-Registry/xml/gl.xml", "gl", "3.3", "tests/test-gl10")
-    
     
 if __name__ == "__main__":
     main()
