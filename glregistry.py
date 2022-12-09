@@ -3,15 +3,28 @@ import xml.dom.minidom
 from xml.dom.minidom import Node
 
 class Parameter:
-    def __init__(self, name, type, class_, len, group, is_const, is_pointer):
+    def __init__(self, name, type, class_, len, group, type_parts):
         self.name = name
         self.type = type
         self.class_ = class_
         self.len = len
         self.group = group
-        self.is_const = is_const
-        self.is_pointer = is_pointer
+        self.type_parts = type_parts
+    
+    def is_pointer(self):
+        for part in self.type_parts:
+            if part == "*":
+                return True
         
+        return False
+
+    def is_const(self):
+        for part in self.type_parts:
+            if part == "const":
+                return True
+        
+        return False
+
     def has_class(self):
         return self.class_ is not None
 
@@ -28,8 +41,8 @@ class Parameter:
         return self.__repr__()
 
     def __repr__(self) -> str:
-        tmpl = "Parameter(name={}, type={}, class={}, len={}, group={}, is_const={}, is_pointer={})"
-        return tmpl.format(self.name, self.type, self.class_, self.len, self.group, self.is_const, self.is_pointer)
+        tmpl = "Parameter(name={}, type={}, class={}, len={}, group={}, type_parts={}"
+        return tmpl.format(self.name, self.type, self.class_, self.len, self.group, self.type_parts)
 
 
 class EnumCollection:
@@ -276,31 +289,22 @@ class GLXMLParser:
             self.extract_param_class(param_el),
             self.extract_param_len(param_el),
             self.extract_param_group(param_el),
-            self.extract_param_is_const(param_el), 
-            self.extract_param_is_pointer(param_el)
+            self.extract_param_type_parts(param_el)
         )
 
         return param
 
-    def extract_param_is_const(self, param_el):
+    def extract_param_type_parts(self, param_el):
+        parts = []
+
         for node in param_el.childNodes:
-            if node.nodeType != Node.TEXT_NODE:
-                continue
+            if node.nodeType == Node.TEXT_NODE:
+                parts.append(node.data.strip())
 
-            if node.data.strip() == "const":
-                return True
-        
-        return False
+            if node.nodeType == Node.ELEMENT_NODE and node.tagName == "ptype":
+                parts.append(node.childNodes[0].data.strip())
 
-    def extract_param_is_pointer(self, param_el):
-        for node in param_el.childNodes:
-            if node.nodeType != Node.TEXT_NODE:
-                continue
-
-            if node.data.strip() == "*":
-                return True
-        
-        return False
+        return parts
 
     def extract_param_group(self, param_el):
         return param_el.getAttribute("group")

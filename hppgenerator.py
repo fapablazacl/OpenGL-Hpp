@@ -83,13 +83,12 @@ namespace gl {{
             param_type = param.group
         
         parts = []
-        if param.is_const:
-            parts.append("const")
 
-        parts.append(param_type)
-
-        if param.is_pointer:
-            parts.append("*")
+        for part in param.type_parts:
+            if part == param.type:
+                part = param_type
+            
+            parts.append(part)
 
         return " ".join(parts)
     
@@ -118,15 +117,15 @@ namespace gl {{
         return tmpl.format(command.name, ", ".join(param_invoke_list))
 
     def generate_method_body_param(self, param):
-        if param.has_group() and param.group == "Boolean" and param.is_pointer:
+        if param.has_group() and param.group == "Boolean" and param.is_pointer():
             return f'reinterpret_cast<{self.map_param_type(param, True)}>({param.name})'
 
-        if param.has_group() and not param.is_pointer:
+        if param.has_group() and not param.is_pointer():
             return f'static_cast<{param.type}>({param.name})'
 
-        if self.param_type_must_change(param) and param.is_pointer:
+        if self.param_type_must_change(param) and param.is_pointer():
             const = ""
-            if param.is_const:
+            if param.is_const():
                 const = "const"
 
             return f'reinterpret_cast<{const} {param.type}*>({param.name})'
