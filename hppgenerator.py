@@ -92,7 +92,13 @@ namespace gl {{
             parts.append("*")
 
         return " ".join(parts)
+    
+    def param_type_must_change(self, param, ignore_group = False):
+        if ignore_group == False and param.has_group() and param.group in self.__repository.group_to_enums_dict:
+            return True
         
+        return False
+
     def generate_params(self, params):
         return ', '.join([self.generate_param(param) for param in params])
 
@@ -117,6 +123,13 @@ namespace gl {{
 
         if param.has_group() and not param.is_pointer:
             return f'static_cast<{param.type}>({param.name})'
+
+        if self.param_type_must_change(param) and param.is_pointer:
+            const = ""
+            if param.is_const:
+                const = "const"
+
+            return f'reinterpret_cast<{const} {param.type}*>({param.name})'
 
         return param.name
 

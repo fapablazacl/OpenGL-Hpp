@@ -336,7 +336,6 @@ class GLXMLParser:
         return None
 
     def extract_command_return_type(self, command):
-        # <proto group="String">const <ptype>GLubyte</ptype> *<name>glGetString</name></proto>
         proto = command.getElementsByTagName("proto")[0]
         parts = []
 
