@@ -1,7 +1,88 @@
 
+def is_capitalized(value):
+    if value == '':
+        return False
+
+    state = 0   # 0: uppercase part. 1: lowercase part
+
+    for ch in value:
+        if state == 0:
+            if str.isupper(ch):
+                state = 1
+            else:
+                return False
+        elif state == 1:
+            if str.isupper(ch):
+                continue
+            elif str.islower(ch):
+                state = 2
+            else:
+                return False
+        elif state == 2:
+            if not str.islower(ch):
+                return False
+            
+    return True
+
+def split_capitalized(value):
+    entries = [] 
+
+    current = ''
+    current_i = 0
+    for i in range(len(value)):
+        ch = value[i]
+
+        if is_capitalized(current) and not is_capitalized(current + ch):
+            entries.append(current)
+            current = ''
+            current_i = i
+        
+        current += ch
+
+    entries.append(value[current_i:])
+
+    return entries
 
 def camel_case(class_name):
     return ''.join([ item.title() for item in class_name.split(' ')])
+
+
+class Capitalizer:
+    def __init__(self) -> None:
+        self.excluded_words = [
+            'EXT', 'ARB', 'NV'
+        ]
+
+    def capitalize(self, value):
+        if value in self.excluded_words:
+            return value
+
+        return value.capitalize()
+
+
+def capitalize_non_acronym(value):
+    if str.isupper(value):
+        return value
+    
+    return value.capitalize
+
+class EnumIdentifierConverter:
+    def __init__(self, enum_name, enums) -> None:
+        self.enum_name = enum_name
+        self.enums = enums
+        self.enum_name_parts = split_capitalized(enum_name)
+        self.capitalizer = Capitalizer()
+
+    def convert_enum_name(self):
+        return self.enum_name
+
+    def convert_enum_entry(self, constant):
+        parts = constant.replace("GL_", "").split('_')
+        parts = map(lambda x: self.capitalizer.capitalize(x), parts)
+        parts = filter(lambda x: x not in self.enum_name_parts, parts)
+
+        return 'e' + ''.join(parts)
+    
 
 class CodeGenerator:
     def __init__(self, repository):
@@ -44,9 +125,6 @@ namespace gl {{
 #endif 
 """.format("\n".join(generated_enums), "\n".join(generated_commands))
 
-    def generate_cpp_boolean_enum(self):
-        pass
-
     def generate_cpp_enum(self, cpp_enum_name, enums):
         base_type = ""
 
@@ -59,15 +137,14 @@ namespace gl {{
     {}
 }};"""
 
-        entries = [self.generate_cpp_enum_entry(enum) for enum in enums]
+        converter = EnumIdentifierConverter(cpp_enum_name, enums)
+
+        entries = [self.generate_cpp_enum_entry(enum, converter) for enum in enums]
         return tmpl.format(cpp_enum_name, base_type, ",\n    ".join(entries))
     
-    def convert_constant(self, constant):
-        return constant.replace("GL_", "e")
-
-    def generate_cpp_enum_entry(self, enum):
+    def generate_cpp_enum_entry(self, enum, converter):
         tmpl = "{} = {}"
-        return tmpl.format(self.convert_constant(enum.name), enum.value)
+        return tmpl.format(converter.convert_enum_entry(enum.name), enum.value)
 
     def generate_cpp_command(self, command):
         return self.generate_method(command)
@@ -155,3 +232,20 @@ private:
 }};"""
         class_name = camel_case(key)
         return tmpl.format(class_name, self.generate_methods(commands))
+
+if __name__ == '__main__':
+    converter = EnumIdentifierConverter('TextureTarget', {
+        'GL_TEXTURE_1D': '0x0DE0',
+        'GL_TEXTURE_2D': '0x0DE1',
+        'GL_PROXY_TEXTURE_1D': '0x8063',
+        'GL_PROXY_TEXTURE_1D_EXT': '0x8063'
+    })
+
+    for enum_entry in converter.enum_entry_dict:
+        print(converter.convert_enum_entry(enum_entry))
+
+    """
+    tests = ['PascalCase', 'TextureTarget', 'GetPName', 'Texture', 'Target', 'PName']
+    for test in tests:
+        print(test, ", ", split_capitalized(test))
+    """
