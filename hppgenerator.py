@@ -50,7 +50,7 @@ def camel_case(class_name):
 class Capitalizer:
     def __init__(self) -> None:
         self.excluded_words = [
-            'EXT', 'ARB', 'NV'
+            'EXT', 'ARB', 'NV', 'OES', '1D', '2D', '3D'
         ]
 
     def capitalize(self, value):
@@ -79,7 +79,7 @@ class EnumIdentifierConverter:
     def convert_enum_entry(self, constant):
         parts = constant.replace("GL_", "").split('_')
         parts = map(lambda x: self.capitalizer.capitalize(x), parts)
-        parts = filter(lambda x: x not in self.enum_name_parts, parts)
+        # parts = filter(lambda x: x not in self.enum_name_parts, parts)
 
         return 'e' + ''.join(parts)
     
