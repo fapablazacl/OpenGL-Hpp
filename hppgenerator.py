@@ -50,7 +50,7 @@ def camel_case(class_name):
 class Capitalizer:
     def __init__(self) -> None:
         self.excluded_words = [
-            'EXT', 'ARB', 'NV', 'OES', '1D', '2D', '3D'
+            '1D', '2D', '3D'
         ]
 
     def capitalize(self, value):
@@ -78,11 +78,14 @@ class EnumIdentifierConverter:
 
     def convert_enum_entry(self, constant):
         parts = constant.replace("GL_", "").split('_')
-        parts = map(lambda x: self.capitalizer.capitalize(x), parts)
-        # parts = filter(lambda x: x not in self.enum_name_parts, parts)
+        parts = list(map(lambda x: self.capitalizer.capitalize(x), parts))
+
+        temp_parts = list(filter(lambda x: x not in self.enum_name_parts, parts))
+
+        if len(temp_parts) > 0:
+            parts = temp_parts
 
         return 'e' + ''.join(parts)
-    
 
 class CodeGenerator:
     def __init__(self, repository):
@@ -234,14 +237,14 @@ private:
         return tmpl.format(class_name, self.generate_methods(commands))
 
 if __name__ == '__main__':
-    converter = EnumIdentifierConverter('TextureTarget', {
-        'GL_TEXTURE_1D': '0x0DE0',
-        'GL_TEXTURE_2D': '0x0DE1',
-        'GL_PROXY_TEXTURE_1D': '0x8063',
-        'GL_PROXY_TEXTURE_1D_EXT': '0x8063'
+    converter = EnumIdentifierConverter('FramebufferTarget', {
+        'GL_READ_FRAMEBUFFER': '0x0DE0',
+        'GL_DRAW_FRAMEBUFFER': '0x0DE1',
+        'GL_FRAMEBUFFER': '0x8063',
+        'GL_FRAMEBUFFER_OES': '0x8063'
     })
 
-    for enum_entry in converter.enum_entry_dict:
+    for enum_entry in converter.enums:
         print(converter.convert_enum_entry(enum_entry))
 
     """
