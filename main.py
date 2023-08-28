@@ -25,17 +25,6 @@ def generate_hpp_header(gl_xml_file_path, api, version, output_folder):
     file.write(generated_code)
     file.close()
 
-    print("Done.")
-
-    """
-    classdict = consolidate_classes(commands)
-
-    key = "texture"
-    generate_class(classdict[key], key)
-    
-    for key in classdict:
-        generate_class(classdict[key], key)
-    """
 
 def main():
     generate_hpp_header("OpenGL-Registry/xml/gl.xml", "gl", "3.3", "tests/test-gl10")

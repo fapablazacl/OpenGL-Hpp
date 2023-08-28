@@ -2,6 +2,7 @@
 import xml.dom.minidom
 from xml.dom.minidom import Node
 
+
 class Parameter:
     def __init__(self, name, type, class_, len, group, type_parts):
         self.name = name
