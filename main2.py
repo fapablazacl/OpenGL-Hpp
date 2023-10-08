@@ -49,18 +49,37 @@ class Enums:
     def __str__(self):
         return f'Enums( namespace="{self.namespace}", group="{self.group}", enum_group_type="{self.enum_group_type}", enum_dict="{self.enum_dict}", start="{self.start}", end="{self.end}", vendor="{self.vendor}", comment="{self.comment}"'
 
+class TypeDecl:
+    def __init__(self, name, is_pointer = False):
+        self.name = name
+        self.is_pointer = is_pointer
+
+    def __str__(self):
+        return f'TypeDecl(name="{self.name}", is_pointer="{self.is_pointer}")'
+
+class Command:
+    def __init__(self):
+        self.name = None
+        self.return_type = None
+        self.params = []
+
+    def __str__(self):
+        return f'Command(name="{self.name}", return_type="{self.return_type}", params="{self.params}")'
+
 
 class Registry:
-    def __init__(self, types_dict, enums_list):
+    def __init__(self, types_dict, enums_list, command_dict):
         self.types_dict = types_dict
         self.enums_list = enums_list
+        self.command_dict = command_dict
 
 
 class RegistryFactory:
     def create_registry(self, root_node):
         return Registry(
             types_dict=self.__extract_type_definitions(root_node),
-            enums_list=self.__extract_enums_definitions(root_node))
+            enums_list=self.__extract_enums_definitions(root_node),
+            command_dict=self.__extract_commands_definitions(root_node))
 
     def __genspaces(self, count):
         spaces = ""
@@ -216,7 +235,49 @@ class RegistryFactory:
             name=enum_node.getAttribute("name"),
             group=enum_node.getAttribute("group"))
 
+    def __extract_commands_definitions(self, root):
+        if root.nodeType != Node.ELEMENT_NODE:
+            raise Exception("excepted element node as root")
 
+        if root.tagName != "registry":
+            raise Exception("expected registry node tag as root")
+
+        command_dict = {}
+
+        for commands_node in root.childNodes:
+            if commands_node.nodeType == Node.ELEMENT_NODE and commands_node.tagName == "commands":
+                for command_node in commands_node.childNodes:
+                    if command_node.nodeType == Node.ELEMENT_NODE and command_node.tagName == "command":
+                        command = self.__create_command(command_node)
+                        command_dict[command.name] = command
+
+        return command_dict
+
+    def __create_command(self, command_node):
+        command = Command()
+
+        for child in command_node.childNodes:
+            if child.nodeType == Node.ELEMENT_NODE:
+                if child.tagName == "proto":
+                    self.__fill_command_from_proto_node(command, child)
+
+        return command
+
+    def __fill_command_from_proto_node(self, command, command_proto_node):
+        for child in command_proto_node.childNodes:
+            if child.nodeType == Node.ELEMENT_NODE:
+                if child.tagName == "name":
+                    command.name = child.firstChild.data.strip()
+                elif child.tagName == "ptype":
+                    type_name = child.firstChild.data.strip()
+                    command.return_type = TypeDecl(name=type_name, is_pointer=True)
+
+            elif child.nodeType == Node.TEXT_NODE:
+                type_name = child.nodeValue.strip()
+                if type_name == "":
+                    continue
+
+                command.return_type = TypeDecl(name=type_name)
 
 if __name__ == "__main__":
     gl_xml_file_path = "OpenGL-Registry/xml/gl.xml"
@@ -227,13 +288,19 @@ if __name__ == "__main__":
     root_node = document.childNodes[0]
     registry_factory = RegistryFactory()
     registry = registry_factory.create_registry(root_node)
+    # print(registry.command_dict)
+
+    for key in registry.command_dict:
+        print(registry.command_dict[key])
 
     """
     for key in registry.types_dict:
         print(registry.types_dict[key])
     """
 
+    """"
     for enums in registry.enums_list:
         print(enums)
+    """
 
     # print(registry.types_dict['khrplatform'])
