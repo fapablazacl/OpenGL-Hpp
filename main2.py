@@ -1,4 +1,3 @@
-
 import xml.dom.minidom
 from xml.dom.minidom import Node
 
@@ -23,6 +22,7 @@ class Type:
     def __str__(self):
         return f'Type( name="{self.name}", c_definition="{self.c_definition}", requires="{self.requires}", comment="{self.comment}")'
 
+
 class Enum:
     def __init__(self, value, name, group=None, alias=None, comment=None):
         self.value = value
@@ -32,21 +32,35 @@ class Enum:
         self.comment = comment
 
     def __str__(self):
-        return f'Type( name="{self.name}", c_definition="{self.c_definition}", requires="{self.requires}", comment="{self.comment})"'
+        return f'Enum( value="{self.value}", name="{self.name}", group="{self.group}", alias="{self.alias}", comment="{self.comment})"'
 
-class EnumsGroup:
-    def __init__(self, namespace, enums):
+
+class Enums:
+    def __init__(self, namespace, group, enums_type, enum_dict, start=None, end=None, vendor=None, comment=None):
         self.namespace = namespace
-        self.enums = enums
+        self.group = None if group == '' else group
+        self.enum_group_type = None if enums_type == '' else enums_type
+        self.enum_dict = enum_dict
+        self.start = None if start == '' else start
+        self.end = None if end == '' else end
+        self.vendor = None if vendor == '' else vendor
+        self.comment = None if comment == '' else comment
+
+    def __str__(self):
+        return f'Enums( namespace="{self.namespace}", group="{self.group}", enum_group_type="{self.enum_group_type}", enum_dict="{self.enum_dict}", start="{self.start}", end="{self.end}", vendor="{self.vendor}", comment="{self.comment}"'
+
 
 class Registry:
-    def __init__(self, types_dict):
+    def __init__(self, types_dict, enums_list):
         self.types_dict = types_dict
+        self.enums_list = enums_list
 
 
 class RegistryFactory:
     def create_registry(self, root_node):
-        return Registry(types_dict=self.__extract_type_definitions(root_node))
+        return Registry(
+            types_dict=self.__extract_type_definitions(root_node),
+            enums_list=self.__extract_enums_definitions(root_node))
 
     def __genspaces(self, count):
         spaces = ""
@@ -162,19 +176,64 @@ class RegistryFactory:
 
         return types_dict
 
+    def __extract_enums_definitions(self, root):
+        if root.nodeType != Node.ELEMENT_NODE:
+            raise Exception("excepted element node as root")
+
+        if root.tagName != "registry":
+            raise Exception("expected registry node tag as root")
+
+        enums_list = []
+
+        for node in root.childNodes:
+            if node.nodeType == Node.ELEMENT_NODE and node.tagName == "enums":
+                enums = self.__create_enums(node)
+                enums_list.append(enums)
+
+        return enums_list
+
+    def __create_enums(self, enums_node):
+        enums_dict = {}
+
+        for node in enums_node.childNodes:
+            if node.nodeType == Node.ELEMENT_NODE and node.tagName == "enum":
+                enum = self.__create_enum(node)
+                enums_dict[enum.name] = enum
+
+        return Enums(
+            namespace=enums_node.getAttribute("namespace"),
+            group=enums_node.getAttribute("group"),
+            enums_type=enums_node.getAttribute("type"),
+            enum_dict=enums_dict,
+            start=enums_node.getAttribute("start"),
+            end=enums_node.getAttribute("end"),
+            vendor=enums_node.getAttribute("vendor"),
+            comment=enums_node.getAttribute("comment"))
+
+    def __create_enum(self, enum_node):
+        return Enum(
+            value=enum_node.getAttribute("value"),
+            name=enum_node.getAttribute("name"),
+            group=enum_node.getAttribute("group"))
+
+
 
 if __name__ == "__main__":
     gl_xml_file_path = "OpenGL-Registry/xml/gl.xml"
 
     # Open XML document using minidom parser
     document = xml.dom.minidom.parse(gl_xml_file_path)
-    print(document)
 
     root_node = document.childNodes[0]
     registry_factory = RegistryFactory()
     registry = registry_factory.create_registry(root_node)
 
+    """
     for key in registry.types_dict:
         print(registry.types_dict[key])
+    """
+
+    for enums in registry.enums_list:
+        print(enums)
 
     # print(registry.types_dict['khrplatform'])
