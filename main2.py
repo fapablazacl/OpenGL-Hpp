@@ -80,11 +80,57 @@ class CommandParam:
     def __repr__(self):
         return f'\n  {str(self)}'
 
+class TypeRef:
+    def __init__(self, name, comment):
+        self.name = name
+        self.comment = None if comment == "" else comment
+
+    def __str__(self):
+        return f'TypeRef(name="{self.name}", comment="{self.comment}"'
+
+
+class EnumRef:
+    def __init__(self, name, comment):
+        self.name = name
+        self.comment = None if comment == "" else comment
+
+    def __str__(self):
+        return f'EnumRef(name="{self.name}", comment="{self.comment}"'
+
+class CommandRef:
+    def __init__(self, name, comment):
+        self.name = name
+        self.comment = None if comment == "" else comment
+
+    def __str__(self):
+        return f'CommandRef(name="{self.name}", comment="{self.comment}"'
+
+
+class Require:
+    def __init__(self, type_list, enum_list, command_list):
+        self.type_list = type_list
+        self.enum_list = enum_list
+        self.command_list = command_list
+
+class Feature:
+    def __init__(self, api, name, number, require_list = None):
+        self.api = api
+        self.name = name
+        self.number = number
+        self.require_list = [] if (require_list is None) else require_list
+
+    def __str__(self):
+        return f'Feature(api="{self.api}", name="{self.name}", number="{self.number}", len(require_list)={len(self.require_list)}'
+
+    def __repr__(self):
+        return f'\n  {str(self)}'
+
 class Registry:
-    def __init__(self, types_dict, enums_list, command_dict):
+    def __init__(self, types_dict, enums_list, command_dict, feature_list):
         self.types_dict = types_dict
         self.enums_list = enums_list
         self.command_dict = command_dict
+        self.feature_list = feature_list
 
 
 class RegistryFactory:
@@ -92,7 +138,8 @@ class RegistryFactory:
         return Registry(
             types_dict=self.__extract_type_definitions(root_node),
             enums_list=self.__extract_enums_definitions(root_node),
-            command_dict=self.__extract_commands_definitions(root_node))
+            command_dict=self.__extract_commands_definitions(root_node),
+            feature_list=self.__extract_feature_definitions(root_node))
 
     def __genspaces(self, count):
         spaces = ""
@@ -320,6 +367,64 @@ class RegistryFactory:
 
                 command.return_type = TypeDecl(name=type_name)
 
+    def __extract_feature_definitions(self, root):
+        feature_list = []
+
+        for feature_node in root.childNodes:
+            if feature_node.nodeType != Node.ELEMENT_NODE:
+                continue
+
+            if feature_node.tagName != "feature":
+                continue
+
+            feature = self.__create_feature(feature_node)
+            feature_list.append(feature)
+
+        return feature_list
+
+
+    def __create_feature(self, feature_node):
+        api = feature_node.getAttribute("api")
+        name = feature_node.getAttribute("name")
+        number = feature_node.getAttribute("number")
+        require_list = []
+
+        for require_node in feature_node.childNodes:
+            if require_node.nodeType != Node.ELEMENT_NODE:
+                continue
+
+            if require_node.tagName != "require":
+                continue
+
+            require = self.__create_require(require_node)
+            require_list.append(require)
+
+        return Feature(api=api, name=name, number=number, require_list=require_list)
+
+    def __create_require(self, require_node):
+        type_list = []
+        enum_list = []
+        command_list = []
+
+        for child in require_node.childNodes:
+            if child.nodeType != Node.ELEMENT_NODE:
+                continue
+
+            if child.tagName == "type":
+                type_ref = TypeRef(name=child.getAttribute("name"), comment=child.getAttribute("comment"))
+                type_list.append(type_ref)
+
+            elif child.tagName == "enum":
+                enum_ref = EnumRef(name=child.getAttribute("name"), comment=child.getAttribute("comment"))
+                enum_list.append(enum_ref)
+
+            elif child.tagName == "command":
+                command_ref = CommandRef(name=child.getAttribute("name"), comment=child.getAttribute("comment"))
+                command_list.append(command_ref)
+
+        return Require(type_list=type_list, enum_list=enum_list, command_list=command_list)
+
+
 if __name__ == "__main__":
     gl_xml_file_path = "OpenGL-Registry/xml/gl.xml"
 
@@ -331,18 +436,26 @@ if __name__ == "__main__":
     registry = registry_factory.create_registry(root_node)
     # print(registry.command_dict)
 
+    for value in registry.feature_list[0].require_list[0].type_list:
+        print(value)
+
+    for value in registry.feature_list[0].require_list[0].enum_list:
+        print(value)
+
+    for value in registry.feature_list[0].require_list[0].command_list:
+        print(value)
+
+    #print(registry.feature_list[0].require_list[0].type_list)
+    #print(registry.feature_list[0].require_list[0].enum_list)
+    #print(registry.feature_list[0].require_list[0].command_list)
+
     """
     for key in registry.command_dict:
-        command = registry.command_dict[key]
-
-        for param in command.params:
-            if param.pointer_indirection == 1:
-                print(command)
+        print(registry.command_dict[key])
     """
 
-    print(registry.command_dict["glGetSubroutineIndex"])
-
     """
+    # print(registry.command_dict["glGetSubroutineIndex"])
     for key in registry.types_dict:
         print(registry.types_dict[key])
     """
@@ -351,5 +464,3 @@ if __name__ == "__main__":
     for enums in registry.enums_list:
         print(enums)
     """
-
-    # print(registry.types_dict['khrplatform'])
