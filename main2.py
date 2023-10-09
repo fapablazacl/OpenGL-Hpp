@@ -66,6 +66,17 @@ class Command:
     def __str__(self):
         return f'Command(name="{self.name}", return_type="{self.return_type}", params="{self.params}")'
 
+class CommandParam:
+    def __init__(self, group, data_type, name):
+        self.group = group
+        self.data_type = data_type
+        self.name = name
+
+    def __str__(self):
+        return f'CommandParam(group="{self.group}", name="{self.name}", data_type="{self.data_type}")'
+
+    def __repr__(self):
+        return f'CommandParam(group="{self.group}", name="{self.name}", data_type="{self.data_type}")'
 
 class Registry:
     def __init__(self, types_dict, enums_list, command_dict):
@@ -256,12 +267,36 @@ class RegistryFactory:
     def __create_command(self, command_node):
         command = Command()
 
+        params = []
+
         for child in command_node.childNodes:
             if child.nodeType == Node.ELEMENT_NODE:
                 if child.tagName == "proto":
                     self.__fill_command_from_proto_node(command, child)
+                elif child.tagName == "param":
+                    param = self.__create_command_param(command_param_node=child)
+                    params.append(param)
+
+
+        command.params = params
 
         return command
+
+    def __create_command_param(self, command_param_node):
+        group = command_param_node.getAttribute("group")
+        ptype = None
+        name = None
+
+        for child in command_param_node.childNodes:
+            if child.nodeType != Node.ELEMENT_NODE:
+                continue
+
+            if child.tagName == "ptype":
+                ptype = child.firstChild.data.strip()
+            elif child.tagName == "name":
+                name = child.firstChild.data.strip()
+
+        return CommandParam(group=group, data_type=ptype, name=name)
 
     def __fill_command_from_proto_node(self, command, command_proto_node):
         for child in command_proto_node.childNodes:
