@@ -67,16 +67,18 @@ class Command:
         return f'Command(name="{self.name}", return_type="{self.return_type}", params="{self.params}")'
 
 class CommandParam:
-    def __init__(self, group, data_type, name):
-        self.group = group
+    def __init__(self, group, data_type, pointer_indirection, name, len):
+        self.group = group if group != "" else None
         self.data_type = data_type
+        self.pointer_indirection = pointer_indirection
         self.name = name
+        self.len = len if len != "" else None
 
     def __str__(self):
-        return f'CommandParam(group="{self.group}", name="{self.name}", data_type="{self.data_type}")'
+        return f'CommandParam(group="{self.group}", name="{self.name}", pointer_indirection="{self.pointer_indirection}", data_type="{self.data_type}", len="{self.len}")'
 
     def __repr__(self):
-        return f'CommandParam(group="{self.group}", name="{self.name}", data_type="{self.data_type}")'
+        return f'\n  {str(self)}'
 
 class Registry:
     def __init__(self, types_dict, enums_list, command_dict):
@@ -286,17 +288,21 @@ class RegistryFactory:
         group = command_param_node.getAttribute("group")
         ptype = None
         name = None
+        pointer_indirection = 0
+        len = command_param_node.getAttribute("len")
 
         for child in command_param_node.childNodes:
-            if child.nodeType != Node.ELEMENT_NODE:
-                continue
+            if child.nodeType == Node.ELEMENT_NODE:
+                if child.tagName == "ptype":
+                    ptype = child.firstChild.data.strip()
+                elif child.tagName == "name":
+                    name = child.firstChild.data.strip()
 
-            if child.tagName == "ptype":
-                ptype = child.firstChild.data.strip()
-            elif child.tagName == "name":
-                name = child.firstChild.data.strip()
+            if child.nodeType == Node.TEXT_NODE:
+                if child.nodeValue.strip() == "*":
+                    pointer_indirection += 1
 
-        return CommandParam(group=group, data_type=ptype, name=name)
+        return CommandParam(group=group, data_type=ptype, name=name, pointer_indirection=pointer_indirection, len=len)
 
     def __fill_command_from_proto_node(self, command, command_proto_node):
         for child in command_proto_node.childNodes:
@@ -325,8 +331,16 @@ if __name__ == "__main__":
     registry = registry_factory.create_registry(root_node)
     # print(registry.command_dict)
 
+    """
     for key in registry.command_dict:
-        print(registry.command_dict[key])
+        command = registry.command_dict[key]
+
+        for param in command.params:
+            if param.pointer_indirection == 1:
+                print(command)
+    """
+
+    print(registry.command_dict["glGetSubroutineIndex"])
 
     """
     for key in registry.types_dict:
