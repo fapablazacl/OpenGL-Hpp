@@ -66,6 +66,9 @@ class Command:
     def __str__(self):
         return f'Command(name="{self.name}", return_type="{self.return_type}", params="{self.params}")'
 
+    def __repr__(self):
+        return f'{self}'
+
 class CommandParam:
     def __init__(self, group, data_type, pointer_indirection, name, len):
         self.group = group if group != "" else None
@@ -78,7 +81,7 @@ class CommandParam:
         return f'CommandParam(group="{self.group}", name="{self.name}", pointer_indirection="{self.pointer_indirection}", data_type="{self.data_type}", len="{self.len}")'
 
     def __repr__(self):
-        return f'\n  {str(self)}'
+        return f'{str(self)}'
 
 class TypeRef:
     def __init__(self, name, comment):
@@ -123,7 +126,7 @@ class Feature:
         return f'Feature(api="{self.api}", name="{self.name}", number="{self.number}", len(require_list)={len(self.require_list)}'
 
     def __repr__(self):
-        return f'\n  {str(self)}'
+        return f'{str(self)}'
 
 class Extension:
     def __init__(self, name, supported, require_list):
@@ -135,7 +138,7 @@ class Extension:
         return f'Extension(name="{self.name}", supported="{self.supported}", len(require_list)="{len(self.require_list)}")'
 
     def __repr__(self):
-        return f'\n  {str(self)}'
+        return f'{str(self)}'
 
 class Extensions:
     def __init__(self, extension_list):
@@ -146,20 +149,23 @@ class Extensions:
 
 
 class Registry:
-    def __init__(self, types_dict, enums_list, command_dict, feature_list, extensions):
-        self.types_dict = types_dict
+    def __init__(self, types_list, enums_list, command_list, feature_list, extensions):
+        self.types_dict = types_list
         self.enums_list = enums_list
-        self.command_dict = command_dict
+        self.command_list = command_list
         self.feature_list = feature_list
         self.extensions = extensions
+
+    def __str__(self):
+        return f'Registry(types_list="{self.types_dict}", enums_list="{self.enums_list}", command_list="{self.command_list}", feature_list="{self.feature_list}", extensions="{self.extensions}")'
 
 
 class RegistryFactory:
     def create_registry(self, root_node):
         return Registry(
-            types_dict=self.__extract_type_definitions(root_node),
+            types_list=self.__extract_type_definitions(root_node),
             enums_list=self.__extract_enums_definitions(root_node),
-            command_dict=self.__extract_commands_definitions(root_node),
+            command_list=self.__extract_commands_definitions(root_node),
             feature_list=self.__extract_feature_definitions(root_node),
             extensions=self.__extract_extensions_definition(root_node))
 
@@ -261,21 +267,22 @@ class RegistryFactory:
         if types_node is None:
             raise Exception('types node not found in registry root node.')
 
-        types_dict = {}
+        types_list = []
 
         for type_node in types_node.childNodes:
             if type_node.nodeType != Node.ELEMENT_NODE:
                 continue
 
             type_ = self.__create_type(type_node)
+
             if type_ is not None:
-                types_dict[type_.name] = type_
+                types_list.append(type_)
             else:
-                print("Couldn't extract current type. Dumping child nodes:")
+                print("Warning: couldn't extract current type. Dumping child nodes:")
                 for child in type_node.childNodes:
                     print("    ", child)
 
-        return types_dict
+        return types_list
 
     def __extract_enums_definitions(self, root):
         if root.nodeType != Node.ELEMENT_NODE:
@@ -324,16 +331,16 @@ class RegistryFactory:
         if root.tagName != "registry":
             raise Exception("expected registry node tag as root")
 
-        command_dict = {}
+        command_list = []
 
         for commands_node in root.childNodes:
             if commands_node.nodeType == Node.ELEMENT_NODE and commands_node.tagName == "commands":
                 for command_node in commands_node.childNodes:
                     if command_node.nodeType == Node.ELEMENT_NODE and command_node.tagName == "command":
                         command = self.__create_command(command_node)
-                        command_dict[command.name] = command
+                        command_list.append(command)
 
-        return command_dict
+        return command_list
 
     def __create_command(self, command_node):
         command = Command()
@@ -505,7 +512,7 @@ if __name__ == "__main__":
     root_node = document.childNodes[0]
     registry_factory = RegistryFactory()
     registry = registry_factory.create_registry(root_node)
-    print(registry.extensions)
+    print(registry)
 
     """
     for value in registry.feature_list[0].require_list[0].type_list:
