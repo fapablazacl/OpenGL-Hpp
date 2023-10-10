@@ -86,7 +86,7 @@ class TypeRef:
         self.comment = None if comment == "" else comment
 
     def __str__(self):
-        return f'TypeRef(name="{self.name}", comment="{self.comment}"'
+        return f'TypeRef(name="{self.name}", comment="{self.comment}")'
 
 
 class EnumRef:
@@ -95,7 +95,7 @@ class EnumRef:
         self.comment = None if comment == "" else comment
 
     def __str__(self):
-        return f'EnumRef(name="{self.name}", comment="{self.comment}"'
+        return f'EnumRef(name="{self.name}", comment="{self.comment}")'
 
 class CommandRef:
     def __init__(self, name, comment):
@@ -103,7 +103,7 @@ class CommandRef:
         self.comment = None if comment == "" else comment
 
     def __str__(self):
-        return f'CommandRef(name="{self.name}", comment="{self.comment}"'
+        return f'CommandRef(name="{self.name}", comment="{self.comment}")'
 
 
 class Require:
@@ -125,12 +125,33 @@ class Feature:
     def __repr__(self):
         return f'\n  {str(self)}'
 
+class Extension:
+    def __init__(self, name, supported, require_list):
+        self.name = name
+        self.supported = supported
+        self.require_list = require_list
+
+    def __str__(self):
+        return f'Extension(name="{self.name}", supported="{self.supported}", len(require_list)="{len(self.require_list)}")'
+
+    def __repr__(self):
+        return f'\n  {str(self)}'
+
+class Extensions:
+    def __init__(self, extension_list):
+        self.extension_list = extension_list
+
+    def __str__(self):
+        return f'Extensions(extension_list="{self.extension_list}")'
+
+
 class Registry:
-    def __init__(self, types_dict, enums_list, command_dict, feature_list):
+    def __init__(self, types_dict, enums_list, command_dict, feature_list, extensions):
         self.types_dict = types_dict
         self.enums_list = enums_list
         self.command_dict = command_dict
         self.feature_list = feature_list
+        self.extensions = extensions
 
 
 class RegistryFactory:
@@ -139,7 +160,8 @@ class RegistryFactory:
             types_dict=self.__extract_type_definitions(root_node),
             enums_list=self.__extract_enums_definitions(root_node),
             command_dict=self.__extract_commands_definitions(root_node),
-            feature_list=self.__extract_feature_definitions(root_node))
+            feature_list=self.__extract_feature_definitions(root_node),
+            extensions=self.__extract_extensions_definition(root_node))
 
     def __genspaces(self, count):
         spaces = ""
@@ -413,16 +435,65 @@ class RegistryFactory:
             if child.tagName == "type":
                 type_ref = TypeRef(name=child.getAttribute("name"), comment=child.getAttribute("comment"))
                 type_list.append(type_ref)
+                continue
 
             elif child.tagName == "enum":
                 enum_ref = EnumRef(name=child.getAttribute("name"), comment=child.getAttribute("comment"))
                 enum_list.append(enum_ref)
+                continue
 
             elif child.tagName == "command":
                 command_ref = CommandRef(name=child.getAttribute("name"), comment=child.getAttribute("comment"))
                 command_list.append(command_ref)
+                continue
 
         return Require(type_list=type_list, enum_list=enum_list, command_list=command_list)
+
+    def __extract_extensions_definition(self, root):
+        for extensions_node in root.childNodes:
+            if extensions_node.nodeType != Node.ELEMENT_NODE:
+                continue
+
+            if extensions_node.tagName != "extensions":
+                continue
+
+            extension_list = self.__extract_extensions_definitions(extensions_node=extensions_node)
+            return Extensions(extension_list=extension_list)
+
+        return None
+
+
+    def __extract_extensions_definitions(self, extensions_node):
+        extension_list = []
+
+        for extension_node in extensions_node.childNodes:
+            if extension_node.nodeType != Node.ELEMENT_NODE:
+                continue
+
+            if extension_node.tagName != "extension":
+                continue
+
+            extension = self.__create_extension(extension_node)
+            extension_list.append(extension)
+
+        return extension_list
+
+    def __create_extension(self, extension_node):
+        name = extension_node.getAttribute("name")
+        supported = extension_node.getAttribute("supported").split('|')
+        require_list = []
+
+        for child in extension_node.childNodes:
+            if child.nodeType != Node.ELEMENT_NODE:
+                continue
+
+            if child.tagName != "require":
+                continue
+
+            require = self.__create_require(require_node=child)
+            require_list.append(require)
+
+        return Extension(name=name, supported=supported, require_list=require_list)
 
 
 if __name__ == "__main__":
@@ -434,8 +505,9 @@ if __name__ == "__main__":
     root_node = document.childNodes[0]
     registry_factory = RegistryFactory()
     registry = registry_factory.create_registry(root_node)
-    # print(registry.command_dict)
+    print(registry.extensions)
 
+    """
     for value in registry.feature_list[0].require_list[0].type_list:
         print(value)
 
@@ -444,6 +516,7 @@ if __name__ == "__main__":
 
     for value in registry.feature_list[0].require_list[0].command_list:
         print(value)
+    """
 
     #print(registry.feature_list[0].require_list[0].type_list)
     #print(registry.feature_list[0].require_list[0].enum_list)
