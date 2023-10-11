@@ -155,7 +155,7 @@ class Extensions:
 
 class Registry:
     def __init__(self, types_list, enums_list, command_list, feature_list, extensions):
-        self.types_dict = types_list
+        self.types_list = types_list
         self.enums_list = enums_list
         self.command_list = command_list
         self.feature_list = feature_list

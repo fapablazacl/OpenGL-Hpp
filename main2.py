@@ -15,7 +15,7 @@ if __name__ == "__main__":
     registry = registry_factory.create_registry(root_node)
 
     generator = Generator(registry=registry)
-    generator.generate(api="gl", number="1.0")
+    generator.generate(api="gl", number="1.1")
 
     """
     for value in registry.feature_list[0].require_list[0].type_list:
