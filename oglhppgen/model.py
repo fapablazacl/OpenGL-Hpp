@@ -1,5 +1,5 @@
-
 from xml.dom.minidom import Node
+
 
 # Type is used here to denote:
 # 1. Header requirements (khrplatform.h)
@@ -46,13 +46,15 @@ class Enums:
     def __str__(self):
         return f'Enums( namespace="{self.namespace}", group="{self.group}", enum_group_type="{self.enum_group_type}", enum_dict="{self.enum_dict}", start="{self.start}", end="{self.end}", vendor="{self.vendor}", comment="{self.comment}"'
 
+
 class TypeDecl:
-    def __init__(self, name, is_pointer = False):
+    def __init__(self, name, is_pointer=False):
         self.name = name
         self.is_pointer = is_pointer
 
     def __str__(self):
         return f'TypeDecl(name="{self.name}", is_pointer="{self.is_pointer}")'
+
 
 class Command:
     def __init__(self):
@@ -65,6 +67,7 @@ class Command:
 
     def __repr__(self):
         return f'{self}'
+
 
 class CommandParam:
     def __init__(self, group, data_type, pointer_indirection, name, len):
@@ -79,6 +82,7 @@ class CommandParam:
 
     def __repr__(self):
         return f'{str(self)}'
+
 
 class TypeRef:
     def __init__(self, name, comment):
@@ -97,6 +101,7 @@ class EnumRef:
     def __str__(self):
         return f'EnumRef(name="{self.name}", comment="{self.comment}")'
 
+
 class CommandRef:
     def __init__(self, name, comment):
         self.name = name
@@ -112,8 +117,9 @@ class Require:
         self.enum_list = enum_list
         self.command_list = command_list
 
+
 class Feature:
-    def __init__(self, api, name, number, require_list = None):
+    def __init__(self, api, name, number, require_list=None):
         self.api = api
         self.name = name
         self.number = number
@@ -124,6 +130,7 @@ class Feature:
 
     def __repr__(self):
         return f'{str(self)}'
+
 
 class Extension:
     def __init__(self, name, supported, require_list):
@@ -136,6 +143,7 @@ class Extension:
 
     def __repr__(self):
         return f'{str(self)}'
+
 
 class Extensions:
     def __init__(self, extension_list):
@@ -152,6 +160,7 @@ class Registry:
         self.command_list = command_list
         self.feature_list = feature_list
         self.extensions = extensions
+
 
     def __str__(self):
         return f'Registry(types_list="{self.types_dict}", enums_list="{self.enums_list}", command_list="{self.command_list}", feature_list="{self.feature_list}", extensions="{self.extensions}")'
@@ -352,7 +361,6 @@ class RegistryFactory:
                     param = self.__create_command_param(command_param_node=child)
                     params.append(param)
 
-
         command.params = params
 
         return command
@@ -407,7 +415,6 @@ class RegistryFactory:
             feature_list.append(feature)
 
         return feature_list
-
 
     def __create_feature(self, feature_node):
         api = feature_node.getAttribute("api")
@@ -466,7 +473,6 @@ class RegistryFactory:
 
         return None
 
-
     def __extract_extensions_definitions(self, extensions_node):
         extension_list = []
 
@@ -498,4 +504,3 @@ class RegistryFactory:
             require_list.append(require)
 
         return Extension(name=name, supported=supported, require_list=require_list)
-

@@ -2,6 +2,7 @@
 import xml.dom.minidom
 
 from oglhppgen.model import RegistryFactory
+from oglhppgen.generator import Generator
 
 if __name__ == "__main__":
     gl_xml_file_path = "OpenGL-Registry/xml/gl.xml"
@@ -12,7 +13,9 @@ if __name__ == "__main__":
     root_node = document.childNodes[0]
     registry_factory = RegistryFactory()
     registry = registry_factory.create_registry(root_node)
-    print(registry)
+
+    generator = Generator(registry=registry)
+    generator.generate(api="gl", number="1.0")
 
     """
     for value in registry.feature_list[0].require_list[0].type_list:
@@ -25,9 +28,11 @@ if __name__ == "__main__":
         print(value)
     """
 
-    #print(registry.feature_list[0].require_list[0].type_list)
-    #print(registry.feature_list[0].require_list[0].enum_list)
-    #print(registry.feature_list[0].require_list[0].command_list)
+    """"
+    print(registry.feature_list[0].require_list[0].type_list)
+    print(registry.feature_list[0].require_list[0].enum_list)
+    print(registry.feature_list[0].require_list[0].command_list)
+    """
 
     """
     for key in registry.command_dict:
