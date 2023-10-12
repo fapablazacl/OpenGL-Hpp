@@ -48,12 +48,13 @@ class Enums:
 
 
 class TypeDecl:
-    def __init__(self, name, is_pointer=False):
+    def __init__(self, name, is_pointer=False, is_const=False):
         self.name = name
         self.is_pointer = is_pointer
+        self.is_const = is_const
 
     def __str__(self):
-        return f'TypeDecl(name="{self.name}", is_pointer="{self.is_pointer}")'
+        return f'TypeDecl(name="{self.name}", is_pointer="{self.is_pointer}", is_const="{self.is_const}")'
 
 
 class Command:
@@ -70,12 +71,14 @@ class Command:
 
 
 class CommandParam:
-    def __init__(self, group, data_type, pointer_indirection, name, len):
+    def __init__(self, group, data_type, pointer_indirection, name, len, is_const, is_void):
         self.group = group if group != "" else None
         self.data_type = data_type
         self.pointer_indirection = pointer_indirection
         self.name = name
         self.len = len if len != "" else None
+        self.is_const = is_const
+        self.is_void = is_void
 
     def __str__(self):
         return f'CommandParam(group="{self.group}", name="{self.name}", pointer_indirection="{self.pointer_indirection}", data_type="{self.data_type}", len="{self.len}")'
@@ -371,6 +374,8 @@ class RegistryFactory:
         name = None
         pointer_indirection = 0
         len = command_param_node.getAttribute("len")
+        is_const = False
+        is_void = False
 
         for child in command_param_node.childNodes:
             if child.nodeType == Node.ELEMENT_NODE:
@@ -380,26 +385,55 @@ class RegistryFactory:
                     name = child.firstChild.data.strip()
 
             if child.nodeType == Node.TEXT_NODE:
-                if child.nodeValue.strip() == "*":
-                    pointer_indirection += 1
+                values = child.nodeValue.strip().split(" ")
 
-        return CommandParam(group=group, data_type=ptype, name=name, pointer_indirection=pointer_indirection, len=len)
+                for value in values:
+                    if value == "*":
+                        pointer_indirection += 1
+                    elif value == "const":
+                        is_const = True
+                    elif value == "void":
+                        is_void = True
+
+        return CommandParam(group=group, data_type=ptype, name=name, pointer_indirection=pointer_indirection, len=len, is_const=is_const, is_void=is_void)
 
     def __fill_command_from_proto_node(self, command, command_proto_node):
+        type_is_ptype = False
+
         for child in command_proto_node.childNodes:
             if child.nodeType == Node.ELEMENT_NODE:
-                if child.tagName == "name":
+                if child.tagName == "ptype":
+                    type_is_ptype = True
+                elif child.tagName == "name":
                     command.name = child.firstChild.data.strip()
-                elif child.tagName == "ptype":
-                    type_name = child.firstChild.data.strip()
-                    command.return_type = TypeDecl(name=type_name, is_pointer=True)
 
-            elif child.nodeType == Node.TEXT_NODE:
-                type_name = child.nodeValue.strip()
-                if type_name == "":
-                    continue
+        if type_is_ptype:
+            is_pointer = False
+            is_const = False
+            type_name = None
 
-                command.return_type = TypeDecl(name=type_name)
+            for child in command_proto_node.childNodes:
+                if child.nodeType == Node.ELEMENT_NODE:
+                    if child.tagName == "ptype":
+                        type_name = child.firstChild.data.strip()
+
+                elif child.nodeType == Node.TEXT_NODE:
+                    value = child.nodeValue.strip()
+                    if value == "const":
+                        is_const = True
+                    elif value == "*":
+                        is_pointer = True
+
+            command.return_type = TypeDecl(name=type_name, is_pointer=is_pointer, is_const=is_const)
+        else:
+            for child in command_proto_node.childNodes:
+                if child.nodeType == Node.TEXT_NODE:
+                    type_name = child.nodeValue.strip()
+                    if type_name == "":
+                        continue
+
+                    command.return_type = TypeDecl(name=type_name)
+                    break
 
     def __extract_feature_definitions(self, root):
         feature_list = []

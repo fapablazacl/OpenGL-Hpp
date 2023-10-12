@@ -25,18 +25,52 @@ class Generator:
         for value in self.__registry.command_list:
             self.__command_by_name[value.name] = value
 
-        # print(self.__type_by_name)
-        # print(self.__enum_by_name)
-        # print(self.__command_by_name)
-
     def generate(self, api, number):
         self.__check_api_number(api, number)
         features = self.__collect_features(api, number)
 
-        for feature in features:
-            pass
+        code = '\n'.join([self.__generate_feature(feature) for feature in features])
 
-        print(features)
+        return code
+
+    def __generate_feature(self, feature):
+        code = f'/* {feature.name} definitions */\n'
+
+        for require in feature.require_list:
+            for type_ref in require.type_list:
+                type_ = self.__type_by_name[type_ref.name]
+                code += f'{self.__generate_type(type_)}\n'
+
+            for enum_ref in require.enum_list:
+                enum = self.__enum_by_name[enum_ref.name]
+                code += f'{self.__generate_enum(enum)}\n'
+
+            for command_ref in require.command_list:
+                command = self.__command_by_name[command_ref.name]
+                code += f'{self.__generate_command(command)}\n'
+
+        return code
+
+    def __generate_type(self, type):
+        return type.c_definition
+
+    def __generate_enum(self, enum):
+        return f'#define {enum.name} {enum.value}'
+
+    def __generate_command(self, command):
+        return_type_str = self.__generate_command_return_type(command.return_type)
+        params_str = ', '.join([self.__generate_command_param(param) for param in command.params])
+
+        return f'{return_type_str}{command.name}({params_str});'
+
+    def __generate_command_return_type(self, return_type):
+        return f'{"const " if return_type.is_const else ""}{return_type.name}{"* " if return_type.is_pointer else " "}'
+
+    def __generate_command_param(self, param):
+        if param.is_void:
+            return f'{"const " if param.is_const else ""}void{"*"*param.pointer_indirection} {param.name}'
+        else:
+            return f'{"const " if param.is_const else ""}{param.data_type}{"*"*param.pointer_indirection} {param.name}'
 
     def __collect_features(self, api, number):
         features = []
