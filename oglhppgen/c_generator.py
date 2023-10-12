@@ -1,4 +1,4 @@
-class Generator:
+class C_Generator:
     def __init__(self, registry):
         self.__registry = registry
 
@@ -78,7 +78,7 @@ class Generator:
         numbers = self.__available_api_numbers[api]
 
         for i in range(len(numbers)):
-            feature = feature_by_number[number]
+            feature = feature_by_number[numbers[i]]
             features.append(feature)
 
             if numbers[i] == number:

@@ -2,7 +2,7 @@
 import xml.dom.minidom
 
 from oglhppgen.model import RegistryFactory
-from oglhppgen.generator import Generator
+from oglhppgen.c_generator import C_Generator
 
 if __name__ == "__main__":
     gl_xml_file_path = "OpenGL-Registry/xml/gl.xml"
@@ -14,8 +14,8 @@ if __name__ == "__main__":
     registry_factory = RegistryFactory()
     registry = registry_factory.create_registry(root_node)
 
-    generator = Generator(registry=registry)
-    code = generator.generate(api="gl", number="1.0")
+    generator = C_Generator(registry=registry)
+    code = generator.generate(api="gl", number="1.1")
 
     print(code)
 
