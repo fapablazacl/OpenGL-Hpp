@@ -2,6 +2,8 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 
+#include <oglhpp/GL.h>
+
 
 // GLFW error callback
 void errorCallback(int error, const char* description) {

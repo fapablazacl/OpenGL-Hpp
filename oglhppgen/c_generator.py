@@ -28,8 +28,36 @@ class C_Generator:
     def generate(self, api, number):
         self.__check_api_number(api, number)
         features = self.__collect_features(api, number)
+        type_name_set = self.__collect_types(features)
 
-        code = '\n'.join([self.__generate_feature(feature) for feature in features])
+        code = ''
+        code += '/* data type definitions */'
+        code += f'\n{self.__generate_types(type_name_set)}'
+        code += '\n\n'.join([self.__generate_feature(feature) for feature in features])
+
+        return code
+
+    def __collect_types(self, features):
+        # collect data type definitions from the commands
+        type_name_set = set()
+
+        for feature in features:
+            for require in feature.require_list:
+                for command_ref in require.command_list:
+                    command = self.__command_by_name[command_ref.name]
+
+                    for param in command.params:
+                        if param.data_type is not None:
+                            type_name_set.add(param.data_type)
+
+        return type_name_set
+
+    def __generate_types(self, type_name_set):
+        code = ''
+
+        for type_name in type_name_set:
+            type_ = self.__type_by_name[type_name]
+            code += f'{self.__generate_type(type_)}\n'
 
         return code
 
@@ -47,7 +75,9 @@ class C_Generator:
 
             for command_ref in require.command_list:
                 command = self.__command_by_name[command_ref.name]
-                code += f'{self.__generate_command(command)}\n'
+                code += f'{self.__generate_command_ptr_typedef(command)}\n'
+                code += f'{self.__generate_command_ptr_variable(command)}\n'
+                code += f'{self.__generate_command_prototype(command)}\n'
 
         return code
 
@@ -57,7 +87,22 @@ class C_Generator:
     def __generate_enum(self, enum):
         return f'#define {enum.name} {enum.value}'
 
-    def __generate_command(self, command):
+    def __generate_command_ptr_name(self, command_name):
+        return f'PFN{command_name.upper()}PROC'
+
+    def __generate_command_ptr_typedef(self, command):
+        return_type_str = self.__generate_command_return_type(command.return_type)
+        params_str = ', '.join([self.__generate_command_param(param) for param in command.params])
+        name = self.__generate_command_ptr_name(command.name)
+
+        return f'{return_type_str}(*{name})({params_str});'
+
+    def __generate_command_ptr_variable(self, command):
+        type_name = self.__generate_command_ptr_name(command.name)
+
+        return f'{type_name} {command.name};'
+
+    def __generate_command_prototype(self, command):
         return_type_str = self.__generate_command_return_type(command.return_type)
         params_str = ', '.join([self.__generate_command_param(param) for param in command.params])
 

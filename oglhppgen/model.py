@@ -121,15 +121,24 @@ class Require:
         self.command_list = command_list
 
 
+class Remove:
+    def __init__(self, profile, comment, type_list, enum_list, command_list) -> None:
+        self.profile = profile
+        self.comment = comment
+        self.type_list = type_list
+        self.enum_list = enum_list
+        self.command_list = command_list
+
 class Feature:
-    def __init__(self, api, name, number, require_list=None):
+    def __init__(self, api, name, number, require_list=None, remove_list=None):
         self.api = api
         self.name = name
         self.number = number
         self.require_list = [] if (require_list is None) else require_list
+        self.remove_list = [] if (remove_list is None) else remove_list
 
     def __str__(self):
-        return f'Feature(api="{self.api}", name="{self.name}", number="{self.number}", len(require_list)={len(self.require_list)}'
+        return f'Feature(api="{self.api}", name="{self.name}", number="{self.number}", len(require_list)={len(self.require_list)}, len(remove_list)={len(self.remove_list)}'
 
     def __repr__(self):
         return f'{str(self)}'
@@ -455,18 +464,20 @@ class RegistryFactory:
         name = feature_node.getAttribute("name")
         number = feature_node.getAttribute("number")
         require_list = []
+        remove_list = []
 
-        for require_node in feature_node.childNodes:
-            if require_node.nodeType != Node.ELEMENT_NODE:
+        for child in feature_node.childNodes:
+            if child.nodeType != Node.ELEMENT_NODE:
                 continue
 
-            if require_node.tagName != "require":
-                continue
+            if child.tagName == "require":
+                require = self.__create_require(child)
+                require_list.append(require)
+            elif child.tagName == "remove":
+                remove = self.__create_remove(child)
+                remove_list.append(remove)
 
-            require = self.__create_require(require_node)
-            require_list.append(require)
-
-        return Feature(api=api, name=name, number=number, require_list=require_list)
+        return Feature(api=api, name=name, number=number, require_list=require_list, remove_list=remove_list)
 
     def __create_require(self, require_node):
         type_list = []
@@ -493,6 +504,35 @@ class RegistryFactory:
                 continue
 
         return Require(type_list=type_list, enum_list=enum_list, command_list=command_list)
+
+    def __create_remove(self, remove_node):
+        type_list = []
+        enum_list = []
+        command_list = []
+
+        for child in remove_node.childNodes:
+            if child.nodeType != Node.ELEMENT_NODE:
+                continue
+
+            if child.tagName == "type":
+                type_ref = TypeRef(name=child.getAttribute("name"), comment=child.getAttribute("comment"))
+                type_list.append(type_ref)
+                continue
+
+            elif child.tagName == "enum":
+                enum_ref = EnumRef(name=child.getAttribute("name"), comment=child.getAttribute("comment"))
+                enum_list.append(enum_ref)
+                continue
+
+            elif child.tagName == "command":
+                command_ref = CommandRef(name=child.getAttribute("name"), comment=child.getAttribute("comment"))
+                command_list.append(command_ref)
+                continue
+
+        profile = remove_node.getAttribute("profile")
+        comment = remove_node.getAttribute("comment")
+
+        return Remove(profile=profile, comment=comment, type_list=type_list, enum_list=enum_list, command_list=command_list)
 
     def __extract_extensions_definition(self, root):
         for extensions_node in root.childNodes:

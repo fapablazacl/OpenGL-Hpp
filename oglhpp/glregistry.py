@@ -97,9 +97,10 @@ class Require:
         
 class Remove:
     def __init__(self, profile) -> None:
+        self.profile = profile
         self.enums = []
         self.commands = []
-        self.profile = profile
+
 
 class Feature:
     def __init__(self, api, name, number, require_list, remove_list) -> None:
