@@ -31,11 +31,41 @@ class C_Generator:
         type_name_set = self.__collect_types(features)
 
         code = ''
+        code += f'{self.__generate_header_prologue()}'
         code += '/* data type definitions */'
         code += f'\n{self.__generate_types(type_name_set)}'
         code += '\n\n'.join([self.__generate_feature(feature) for feature in features])
+        code += f'{self.__generate_header_epilogue()}'
 
         return code
+
+    def __generate_header_prologue(self):
+        return """
+#pragma once 
+
+#ifndef __OGLHPP_GL_H__
+#define __OGLHPP_GL_H__
+
+#if defined(__gl_h_) || defined(__GL_H__)
+  #error please include this header instead
+#endif
+
+#define __gl_h_
+#define __GL_H__
+
+#if _WIN32
+  #define GLAPI 
+  #define GLCALLCONV __stdcall
+#else 
+  #define GLAPI
+  #define GLCALLCONV
+#endif
+"""
+
+    def __generate_header_epilogue(self):
+        return """
+#endif
+"""
 
     def __collect_types(self, features):
         # collect data type definitions from the commands
@@ -78,6 +108,7 @@ class C_Generator:
                 code += f'{self.__generate_command_ptr_typedef(command)}\n'
                 code += f'{self.__generate_command_ptr_variable(command)}\n'
                 code += f'{self.__generate_command_prototype(command)}\n'
+                code += '\n'
 
         return code
 
@@ -95,21 +126,25 @@ class C_Generator:
         params_str = ', '.join([self.__generate_command_param(param) for param in command.params])
         name = self.__generate_command_ptr_name(command.name)
 
-        return f'{return_type_str}(*{name})({params_str});'
+        return f'typedef GLAPI {return_type_str} (GLCALLCONV *{name})({params_str});'
+
+    def __generate_command_ptr_variable_name(self, command_name):
+        return f'__{command_name}'
 
     def __generate_command_ptr_variable(self, command):
         type_name = self.__generate_command_ptr_name(command.name)
+        variable_name = self.__generate_command_ptr_variable_name(command.name)
 
-        return f'{type_name} {command.name};'
+        return f'{type_name} {variable_name};'
 
     def __generate_command_prototype(self, command):
         return_type_str = self.__generate_command_return_type(command.return_type)
         params_str = ', '.join([self.__generate_command_param(param) for param in command.params])
 
-        return f'{return_type_str}{command.name}({params_str});'
+        return f'GLAPI {return_type_str} GLCALLCONV {command.name}({params_str});'
 
     def __generate_command_return_type(self, return_type):
-        return f'{"const " if return_type.is_const else ""}{return_type.name}{"* " if return_type.is_pointer else " "}'
+        return f'{"const " if return_type.is_const else ""}{return_type.name}{"*" if return_type.is_pointer else ""}'
 
     def __generate_command_param(self, param):
         if param.is_void:
