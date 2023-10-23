@@ -25,19 +25,31 @@ class C_Generator:
         for value in self.__registry.command_list:
             self.__command_by_name[value.name] = value
 
+    def __generate_header(self, features, type_name_set):
+        code = ''
+        code += f'{self.__generate_header_prologue()}'
+        code += '/* data type definitions */'
+        code += f'\n{self.__generate_types(type_name_set)}'
+        code += '\n\n'.join([self.__generate_header_from_feature(feature) for feature in features])
+        code += f'{self.__generate_header_epilogue()}'
+
+        return code
+
+    def __generate_source(self, features, type_name_set):
+        code = '#include <oglhpp/gl.h>\n\n'
+        code += '\n\n'.join([self.__generate_source_from_feature(feature) for feature in features])
+
+        return code
+
     def generate(self, api, number):
         self.__check_api_number(api, number)
         features = self.__collect_features(api, number)
         type_name_set = self.__collect_types(features)
 
-        code = ''
-        code += f'{self.__generate_header_prologue()}'
-        code += '/* data type definitions */'
-        code += f'\n{self.__generate_types(type_name_set)}'
-        code += '\n\n'.join([self.__generate_feature(feature) for feature in features])
-        code += f'{self.__generate_header_epilogue()}'
-
-        return code
+        return {
+            'include/oglhpp/gl.h': self.__generate_header(features, type_name_set),
+            'src/gl.c': self.__generate_source(features, type_name_set)
+        }
 
     def __generate_header_prologue(self):
         return """
@@ -45,6 +57,8 @@ class C_Generator:
 
 #ifndef __OGLHPP_GL_H__
 #define __OGLHPP_GL_H__
+
+#include <KHR/khrplatform.h>
 
 #if defined(__gl_h_) || defined(__GL_H__)
   #error please include this header instead
@@ -60,10 +74,19 @@ class C_Generator:
   #define GLAPI
   #define GLCALLCONV
 #endif
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 """
 
     def __generate_header_epilogue(self):
-        return """
+        return """  
+#if defined(__cplusplus)
+}
+#endif
+
 #endif
 """
 
@@ -91,7 +114,7 @@ class C_Generator:
 
         return code
 
-    def __generate_feature(self, feature):
+    def __generate_header_from_feature(self, feature):
         code = f'/* {feature.name} definitions */\n'
 
         for require in feature.require_list:
@@ -106,9 +129,18 @@ class C_Generator:
             for command_ref in require.command_list:
                 command = self.__command_by_name[command_ref.name]
                 code += f'{self.__generate_command_ptr_typedef(command)}\n'
-                code += f'{self.__generate_command_ptr_variable(command)}\n'
-                code += f'{self.__generate_command_prototype(command)}\n'
+                code += f'{self.__generate_command_ptr_variable(command, extern=True)}\n'
                 code += '\n'
+
+        return code
+
+    def __generate_source_from_feature(self, feature):
+        code = f'/* {feature.name} function pointer variables */\n'
+
+        for require in feature.require_list:
+            for command_ref in require.command_list:
+                command = self.__command_by_name[command_ref.name]
+                code += f'{self.__generate_command_ptr_variable(command, extern=False)}\n'
 
         return code
 
@@ -129,13 +161,15 @@ class C_Generator:
         return f'typedef GLAPI {return_type_str} (GLCALLCONV *{name})({params_str});'
 
     def __generate_command_ptr_variable_name(self, command_name):
-        return f'__{command_name}'
+        return f'{command_name}'
 
-    def __generate_command_ptr_variable(self, command):
+    def __generate_command_ptr_variable(self, command, extern = False):
         type_name = self.__generate_command_ptr_name(command.name)
         variable_name = self.__generate_command_ptr_variable_name(command.name)
 
-        return f'{type_name} {variable_name};'
+        extern_str = 'extern ' if extern else ''
+
+        return f'{extern_str}{type_name} {variable_name};'
 
     def __generate_command_prototype(self, command):
         return_type_str = self.__generate_command_return_type(command.return_type)

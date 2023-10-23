@@ -2,3 +2,4 @@ build
 .idea
 cmake-build-*
 .cmake/
+src/gl.c

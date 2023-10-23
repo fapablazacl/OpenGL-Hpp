@@ -1,6 +1,5 @@
 
-#include <KHR/khrplatform.h>
-#include <oglhpp/GL.h>
+#include <oglhpp/gl.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <cassert>
@@ -46,12 +45,9 @@ int main() {
     glfwMakeContextCurrent(window);
 
     //initialize extensions here
-    __glClear = (PFNGLCLEARPROC)glfwGetProcAddress("glClear");
-    assert(__glClear);
-    __glClearColor = (PFNGLCLEARCOLORPROC)glfwGetProcAddress("glClearColor");
-    assert(__glClearColor);
-    __glFlush = (PFNGLFLUSHPROC)glfwGetProcAddress("glFlush");
-    assert(__glFlush);
+    glClear = (PFNGLCLEARPROC)glfwGetProcAddress("glClear");
+    glClearColor = (PFNGLCLEARCOLORPROC)glfwGetProcAddress("glClearColor");
+    glFlush = (PFNGLFLUSHPROC)glfwGetProcAddress("glFlush");
 
     // Set GLFW error callback
     glfwSetErrorCallback(errorCallback);
@@ -60,10 +56,10 @@ int main() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        __glClearColor(0.2f, 0.4f, 0.8f, 1.0f);
-        __glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(0.2f, 0.4f, 0.8f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-        __glFlush();
+        glFlush();
         glfwSwapBuffers(window);
     }
 
