@@ -1,5 +1,5 @@
 
-#include <oglhpp/gl.h>
+// #include <oglhpp/gl.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <cassert>
@@ -45,9 +45,13 @@ int main() {
     glfwMakeContextCurrent(window);
 
     //initialize extensions here
+    /*
     glClear = (PFNGLCLEARPROC)glfwGetProcAddress("glClear");
     glClearColor = (PFNGLCLEARCOLORPROC)glfwGetProcAddress("glClearColor");
     glFlush = (PFNGLFLUSHPROC)glfwGetProcAddress("glFlush");
+    */
+    
+    // oglhpp_load_functions(glfwGetProcAddress);
 
     // Set GLFW error callback
     glfwSetErrorCallback(errorCallback);
@@ -57,7 +61,19 @@ int main() {
         glfwPollEvents();
 
         glClearColor(0.2f, 0.4f, 0.8f, 1.0f);
+        assert(glGetError() == GL_NO_ERROR);
+
         glClear(GL_COLOR_BUFFER_BIT);
+        assert(glGetError() == GL_NO_ERROR);
+
+        /*
+        glBegin(GL_TRIANGLE_STRIP);
+        glVertex3f(0.0f, 0.5f, 0.0f);        
+        glVertex3f(-0.5f, 0.0f, 0.0f);
+        glVertex3f(0.5f, 0.0f, 0.0f);
+        glEnd();
+        */
+        assert(glGetError() == GL_NO_ERROR);
 
         glFlush();
         glfwSwapBuffers(window);

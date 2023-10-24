@@ -28,8 +28,14 @@ class C_Generator:
     def __generate_header(self, features, type_name_set):
         code = ''
         code += f'{self.__generate_header_prologue()}'
-        code += '/* data type definitions */'
-        code += f'\n{self.__generate_types(type_name_set)}'
+
+        code += '/* loader declarations */\n'
+        code += f'typedef void (*OGLHPP_PROC)(void);\n'
+        code += f'typedef OGLHPP_PROC (*OGLHPP_GETPROCADDRESS)(const char *name);\n'
+        code += f'extern void oglhpp_load_functions(OGLHPP_GETPROCADDRESS getProcAddress);\n\n'
+
+        code += '/* data type definitions */\n'
+        code += f'{self.__generate_types(type_name_set)}'
         code += '\n\n'.join([self.__generate_header_from_feature(feature) for feature in features])
         code += f'{self.__generate_header_epilogue()}'
 
@@ -135,12 +141,32 @@ extern "C" {
         return code
 
     def __generate_source_from_feature(self, feature):
+        command_list = []
+
         code = f'/* {feature.name} function pointer variables */\n'
 
         for require in feature.require_list:
             for command_ref in require.command_list:
                 command = self.__command_by_name[command_ref.name]
                 code += f'{self.__generate_command_ptr_variable(command, extern=False)}\n'
+
+                command_list.append(command)
+
+        code += f'\n{self.__generate_loader_from_command_list(command_list)}'
+
+        return code
+
+    def __generate_loader_from_command_list(self, command_list):
+        code = "void oglhpp_load_functions(OGLHPP_GETPROCADDRESS getProcAddress) {\n"
+
+        for command in command_list:
+            command_name = command.name
+            command_ptr_variable_type = self.__generate_command_ptr_name(command.name)
+            command_ptr_variable_name = self.__generate_command_ptr_variable_name(command.name)
+
+            code += f'    {command_ptr_variable_name} = ({command_ptr_variable_type})getProcAddress("{command_name}");\n'
+
+        code += '}'
 
         return code
 
