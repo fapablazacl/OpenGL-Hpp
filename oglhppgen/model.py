@@ -375,6 +375,9 @@ class RegistryFactory:
 
         command.params = params
 
+        if command.name == "glGetPointerv":
+            pass
+
         return command
 
     def __create_command_param(self, command_param_node):
@@ -399,6 +402,8 @@ class RegistryFactory:
                 for value in values:
                     if value == "*":
                         pointer_indirection += 1
+                    elif value == "**":
+                        pointer_indirection += 2
                     elif value == "const":
                         is_const = True
                     elif value == "void":

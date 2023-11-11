@@ -15,7 +15,7 @@ if __name__ == "__main__":
     registry = registry_factory.create_registry(root_node)
 
     generator = C_Generator(registry=registry)
-    lib_source_dict = generator.generate(api="gl", number="1.0")
+    lib_source_dict = generator.generate(api="gl", number="3.3")
 
     for filename_suffix in lib_source_dict:
         print(f"Generating {filename_suffix}")
